@@ -40,9 +40,13 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   icon?: ReactNode;
 };
 
-export function Button({ variant = "secondary", icon, className, children, ...rest }: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { variant = "secondary", icon, className, children, ...rest },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       type="button"
       className={cx(
         "inline-flex h-8 items-center justify-center gap-2 rounded-md px-3 text-[13px] font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40",
@@ -58,7 +62,7 @@ export function Button({ variant = "secondary", icon, className, children, ...re
       {children}
     </button>
   );
-}
+});
 
 export function Segmented<T extends string>({
   value,

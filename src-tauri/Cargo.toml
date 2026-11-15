@@ -44,6 +44,9 @@ fast_image_resize = { version = "5", features = ["rayon"] }
 # ── video (libmpv is loaded at runtime) ──
 libloading = "0.8"
 
+# ── file operations (Recycle Bin delete / restore) ──
+trash = "5"
+
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"
 windows-sys = { version = "0.59", features = [
@@ -51,6 +54,7 @@ windows-sys = { version = "0.59", features = [
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
   "Win32_System_Com",
+  "Win32_Storage_FileSystem",
 ] }
 
 [dev-dependencies]

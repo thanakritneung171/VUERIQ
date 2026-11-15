@@ -15,6 +15,7 @@ import {
   RotateCw,
   Scan,
   Star,
+  Trash2,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -38,6 +39,7 @@ export function Viewer() {
   const step = useApp((s) => s.step);
   const goTo = useApp((s) => s.goTo);
   const fullscreen = useApp((s) => s.fullscreen);
+  const deleteFiles = useApp((s) => s.deleteFiles);
   const setFullscreen = useApp((s) => s.setFullscreen);
 
   const file = viewer.items[viewer.index];
@@ -121,6 +123,20 @@ export function Viewer() {
     setFullscreen(false);
   }, [setFullscreen]);
 
+  // Delete the current file (Recycle Bin, undoable) and continue with the next one.
+  const deleting = useRef(false);
+  const deleteCurrent = useCallback(async () => {
+    if (deleting.current) return;
+    deleting.current = true;
+    try {
+      // libmpv keeps the file open while it plays.
+      if (file.kind === "video") await api.videoStop().catch(() => {});
+      await deleteFiles([file.path]);
+    } finally {
+      deleting.current = false;
+    }
+  }, [file.path, file.kind, deleteFiles]);
+
   // Auto-hide toolbar in full screen.
   const pokeChrome = useCallback(() => {
     setChrome(true);
@@ -145,6 +161,7 @@ export function Viewer() {
         case "toggleFullscreen": toggleFullscreen(); break;
         case "toggleInfo": updateSettings({ showInfoPanel: !useApp.getState().settings.showInfoPanel }); break;
         case "toggleFavorite": toggleFavorite(file.path); break;
+        case "delete": deleteCurrent(); break;
         case "step": step(a.delta); break;
         case "first": goTo(0); break;
         case "last": goTo(viewer.items.length - 1); break;
@@ -168,7 +185,7 @@ export function Viewer() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [file.path, isVideo, viewer.items.length, step, goTo, closeViewer, toggleFullscreen, exitFullscreen, toggleFavorite, updateSettings]);
+  }, [file.path, isVideo, viewer.items.length, step, goTo, closeViewer, toggleFullscreen, exitFullscreen, toggleFavorite, updateSettings, deleteCurrent]);
 
   const onScaleChange = useCallback((s: number, mode: ZoomMode) => {
     setScale(s);
@@ -264,6 +281,9 @@ export function Viewer() {
             )}
             <IconButton label={fav ? "Remove from favorites" : "Add to favorites"} shortcut="S" onClick={() => toggleFavorite(file.path)} className={fav ? "text-warn hover:text-warn" : undefined}>
               <Star size={16} fill={fav ? "currentColor" : "none"} />
+            </IconButton>
+            <IconButton label="Delete (move to Recycle Bin)" shortcut="Del" onClick={deleteCurrent}>
+              <Trash2 size={16} />
             </IconButton>
             <IconButton label="Information" shortcut="I" active={settings.showInfoPanel} onClick={() => updateSettings({ showInfoPanel: !settings.showInfoPanel })}>
               <Info size={17} />

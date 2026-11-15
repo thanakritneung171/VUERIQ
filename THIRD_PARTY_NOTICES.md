@@ -41,6 +41,7 @@ responsible for determining whether licences are required in their markets.
 | jxl-oxide | MIT OR Apache-2.0 |
 | resvg, usvg, tiny-skia | Apache-2.0 OR MIT |
 | qcms | MIT |
+| trash | MIT |
 | kamadak-exif | BSD-2-Clause |
 | fast_image_resize | MIT OR Apache-2.0 |
 | libloading | ISC |

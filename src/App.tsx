@@ -4,6 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { TriangleAlert, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AboutDialog } from "./components/AboutDialog";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TitleBar } from "./components/TitleBar";
 import { cx } from "./components/ui";
@@ -14,6 +15,7 @@ import { BrowseView } from "./views/BrowseView";
 import { CollectionView } from "./views/CollectionView";
 import { HomeView } from "./views/HomeView";
 import { SettingsView } from "./views/SettingsView";
+import { SwipeView } from "./views/SwipeView";
 import { Viewer } from "./views/Viewer";
 
 let booted = false;
@@ -90,6 +92,13 @@ export default function App() {
         pickFiles().then((f) => {
           if (f.length) useApp.getState().openPaths(f);
         });
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
+        const st = useApp.getState();
+        const inField = e.target instanceof Element && e.target.closest("input, textarea");
+        // Swipe Sort has its own undo history.
+        if (inField || st.confirm || (st.section === "swipe" && !st.viewer)) return;
+        e.preventDefault();
+        st.undo();
       } else if (e.key === "F5" && !useApp.getState().viewer) {
         e.preventDefault();
         useApp.getState().refreshFolder();
@@ -130,6 +139,8 @@ export default function App() {
             <CollectionView kind="favorites" />
           ) : section === "browse" ? (
             <BrowseView />
+          ) : section === "swipe" ? (
+            <SwipeView />
           ) : (
             <SettingsView />
           )}
@@ -146,7 +157,7 @@ export default function App() {
       )}
 
       {toast && (
-        <div className="animate-pop-in fixed bottom-6 left-1/2 z-[95] -translate-x-1/2">
+        <div key={toast.id} className="animate-pop-in fixed bottom-20 left-1/2 z-[95] -translate-x-1/2">
           <div
             className={cx(
               "flex items-center gap-2.5 rounded-lg border px-4 py-2.5 text-[13px] shadow-2xl",
@@ -155,10 +166,23 @@ export default function App() {
           >
             {toast.tone === "error" && <TriangleAlert size={15} className="text-danger" />}
             {toast.message}
+            {toast.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  useApp.setState({ toast: null });
+                  toast.action!.run();
+                }}
+                className="-my-1 ml-2 rounded-md px-2 py-1 text-[13px] font-semibold text-accent hover:bg-accent/12"
+              >
+                {toast.action.label}
+              </button>
+            )}
           </div>
         </div>
       )}
       <AboutDialog />
+      <ConfirmDialog />
     </div>
   );
 }

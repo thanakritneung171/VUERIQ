@@ -12,6 +12,7 @@ export function CollectionView({ kind }: { kind: "recent" | "favorites" }) {
   const clearRecent = useApp((s) => s.clearRecent);
   const removeRecent = useApp((s) => s.removeRecent);
   const toggleFavorite = useApp((s) => s.toggleFavorite);
+  const fsVersion = useApp((s) => s.fsVersion);
   const [missing, setMissing] = useState<Set<string>>(new Set());
 
   const files = useMemo(() => paths.map(entryFromPath).filter(Boolean) as FileEntry[], [paths]);
@@ -27,7 +28,7 @@ export function CollectionView({ kind }: { kind: "recent" | "favorites" }) {
     return () => {
       alive = false;
     };
-  }, [paths]);
+  }, [paths, fsVersion]);
 
   const title = kind === "recent" ? "Recent" : "Favorites";
   const Icon = kind === "recent" ? Clock : Star;

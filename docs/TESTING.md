@@ -4,9 +4,10 @@
 
 | Layer | Location | Runs with | What it covers |
 |---|---|---|---|
-| UI logic | `src/**/*.test.ts` (Vitest, jsdom) | `pnpm test` | Zoom/pan/rotate/flip maths, pyramid level choice, pan limits, every keyboard shortcut, gallery sorting/filtering/search, file navigation (wrap/clamp), recent files, favorites |
+| UI logic | `src/**/*.test.ts` (Vitest, jsdom) | `pnpm test` | Zoom/pan/rotate/flip maths, pyramid level choice, pan limits, every keyboard shortcut, gallery sorting/filtering/search, file navigation (wrap/clamp), recent files, favorites, rubber-band / range selection maths, swipe thresholds, delete / move / undo store logic |
 | Rust unit | `src-tauri/src/**` `#[cfg(test)]` | `cargo test --lib` | Extension classification, sRGB transfer, P3→sRGB, pyramid construction |
 | Formats | `src-tauri/tests/media_formats.rs` | `cargo test --test media_formats` | HEIC, HEIF, AVIF, JXL, JPEG/PNG/WebP/GIF/BMP/ICO/TIFF/TGA/QOI, SVG, RAW, EXIF orientation, ICC, alpha, sharp detail, corrupt files, bundled-DLL check |
+| File operations | `src-tauri/tests/fileops.rs` | `cargo test --test fileops` | Delete to the real Recycle Bin and restore, missing files, network paths need confirmation, move with name-clash renaming and move back, cross-drive move (C: → D:) keeps size and modified time |
 | Engine | `src-tauri/tests/engine.rs` | `cargo test --test engine` | 96 MP image + tiles, panorama, memory budget/eviction, cache reuse, thumbnail cache, thumbnails for every family, video thumbnails, video playback of 16 container/codec combinations, file association registration (sandboxed registry key) |
 | Manual / in-app | DevTools-driven checks (below) | — | Rendering, video overlay, UI responsiveness |
 
@@ -49,8 +50,8 @@ release. (`cargo test --release` also works but re-runs LTO per test binary.)
 
 ## Latest results — 2026-11-15, Windows 11 Home 26300, i7-8750H, 32 GB
 
-* **Vitest**: 3 files, **62 / 62 passed**.
-* **Rust**: unit 5/5, `media_formats` **16/16**, `engine` **9/9** — **30 / 30 passed**.
+* **Vitest**: 4 files, **82 / 82 passed**.
+* **Rust**: unit 5/5, `media_formats` **16/16**, `engine` **9/9**, `fileops` **5/5** — **35 / 35 passed**.
 
 Selected measurements from the run:
 
@@ -78,6 +79,25 @@ Selected measurements from the run:
 | 40 MP panorama: ready in 0.5 s; max UI frame gap while decoding | ✔ 22 ms (no freeze) |
 | HEVC MKV plays in the stage with HTML controls overlaid (no Windows HEVC extension) | ✔ |
 | libheif/libde265 DLLs loaded from VUERIQ's folder, not System32/WindowsApps | ✔ |
+
+### File operations & Swipe Sort (real window, 15 copied test files, 2026-11-15)
+
+Driven with real mouse/keyboard events over the DevTools protocol; results checked on disk.
+
+| Check | Result |
+|---|---|
+| Drag a box from the gap before the first thumbnail across 2 rows × 3 columns | ✔ exactly those 6 selected; selection bar "6 items selected" |
+| Del → Recycle Bin | ✔ 15 → 9 files on disk; toast "Moved 6 items to the Recycle Bin · Undo" |
+| Undo button in the toast | ✔ all 6 restored to the folder (15 on disk) |
+| Click, Ctrl+click, Shift+click range, click empty space, Ctrl+A, Esc | ✔ 1→2 selected, range 3–6 → 4, cleared, 15, cleared |
+| Move 2 files to another folder, then Ctrl+Z | ✔ 13 + 2 on disk, then all 15 back; favorites follow the move |
+| Right-click menu on a selected file | ✔ Open · Add to Favorites · Show in Explorer · Move to… · Delete |
+| Viewer: Del on file 3/15 | ✔ file recycled, viewer shows the next file (3/14); Ctrl+Z restores it |
+| Swipe Sort: drag right past threshold | ✔ "1 kept", next photo, file untouched |
+| Swipe Sort: short drag | ✔ card snaps back, nothing happens |
+| Swipe Sort: drag left | ✔ file sent to the Recycle Bin, "1 deleted" |
+| Swipe Sort: Ctrl+Z / Backspace / Undo button | ✔ previous card returns; a deleted file is restored from the Recycle Bin |
+| Swipe Sort: ← / → keys, leaving the section and coming back, finishing the folder | ✔ session kept; "All done" summary |
 
 ### HEIC without Windows extensions
 

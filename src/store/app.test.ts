@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn().mockResolvedValue(null) }));
 
+import { invoke } from "@tauri-apps/api/core";
 import type { FileEntry } from "../lib/types";
 import { entryFromPath, sortAndFilter, useApp } from "./app";
 
@@ -83,5 +84,93 @@ describe("file navigation", () => {
     expect(useApp.getState().favorites).toEqual([files[1].path]);
     s.toggleFavorite(files[1].path.toLowerCase());
     expect(useApp.getState().favorites).toEqual([]);
+  });
+});
+
+type Args = Record<string, unknown> | undefined;
+const mockInvoke = (fn: (cmd: string, args: Args) => Promise<unknown>) =>
+  vi.mocked(invoke).mockImplementation(((cmd: string, args?: unknown) => fn(cmd, args as Args)) as typeof invoke);
+
+describe("file operations", () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+    useApp.setState({
+      folder: { path: "C:\\media", parent: "C:\\", dirs: [], files: [...files] },
+      viewer: { items: [...files], index: 1 },
+      favorites: [files[0].path],
+      recent: [],
+      undoStack: [],
+      toast: null,
+      confirm: null,
+    });
+  });
+
+  it("forgetPaths removes files from the folder and keeps the viewer on the next item", () => {
+    useApp.getState().forgetPaths([files[1].path.toUpperCase()]);
+    const s = useApp.getState();
+    expect(s.folder!.files.map((x) => x.name)).toEqual(["IMG_10.jpg", "clip.mp4", "IMG_1.png"]);
+    expect(s.viewer!.items[s.viewer!.index].name).toBe("clip.mp4");
+  });
+
+  it("forgetPaths on the last item moves back, and closes the viewer when nothing is left", () => {
+    useApp.setState({ viewer: { items: [...files], index: 3 } });
+    useApp.getState().forgetPaths([files[3].path]);
+    expect(useApp.getState().viewer!.items[useApp.getState().viewer!.index].name).toBe("clip.mp4");
+    useApp.getState().forgetPaths(files.map((x) => x.path));
+    expect(useApp.getState().viewer).toBeNull();
+  });
+
+  it("delete → Recycle Bin pushes an undo entry, and undo restores", async () => {
+    mockInvoke(async (cmd, args) => {
+      const paths = (args?.paths as string[]) ?? [];
+      if (cmd === "delete_files" || cmd === "restore_files")
+        return paths.map((p) => ({ path: p, to: null, ok: true, recycled: cmd === "delete_files", needsPermanent: false, error: null }));
+      if (cmd === "list_folder") return { path: "C:\\media", parent: "C:\\", dirs: [], files };
+      return null;
+    });
+    const out = await useApp.getState().deleteFiles([files[0].path, files[2].path]);
+    expect(out.recycled).toHaveLength(2);
+    expect(useApp.getState().folder!.files).toHaveLength(2);
+    expect(useApp.getState().undoStack).toEqual([{ kind: "delete", paths: [files[0].path, files[2].path] }]);
+    expect(useApp.getState().toast?.action?.label).toBe("Undo");
+
+    await useApp.getState().undo();
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith("restore_files", { paths: [files[0].path, files[2].path] });
+    expect(useApp.getState().undoStack).toHaveLength(0);
+    expect(useApp.getState().folder!.files).toHaveLength(4);
+  });
+
+  it("asks before deleting permanently on drives without a Recycle Bin", async () => {
+    mockInvoke(async (cmd, args) => {
+      const paths = (args?.paths as string[]) ?? [];
+      if (cmd === "delete_files" && !args?.allowPermanent)
+        return paths.map((p) => ({ path: p, to: null, ok: false, recycled: false, needsPermanent: true, error: "no bin" }));
+      if (cmd === "delete_files") return paths.map((p) => ({ path: p, to: null, ok: true, recycled: false, needsPermanent: false, error: null }));
+      return null;
+    });
+    const pending = useApp.getState().deleteFiles([files[0].path]);
+    await vi.waitFor(() => expect(useApp.getState().confirm).not.toBeNull());
+    useApp.getState().confirm!.resolve(false); // cancel
+    const out = await pending;
+    expect(out.deleted).toHaveLength(0);
+    expect(useApp.getState().folder!.files).toHaveLength(4);
+    expect(useApp.getState().undoStack).toHaveLength(0);
+  });
+
+  it("move updates favorites and can be undone", async () => {
+    mockInvoke(async (cmd, args) => {
+      if (cmd === "move_files")
+        return (args!.paths as string[]).map((p) => ({ path: p, to: p.replace("C:\\media", "D:\\keep"), ok: true, recycled: false, needsPermanent: false, error: null }));
+      if (cmd === "move_exact")
+        return (args!.moves as { from: string; to: string }[]).map((m) => ({ path: m.from, to: m.to, ok: true, recycled: false, needsPermanent: false, error: null }));
+      if (cmd === "list_folder") return { path: "C:\\media", parent: "C:\\", dirs: [], files };
+      return null;
+    });
+    await useApp.getState().moveFiles([files[0].path], "D:\\keep");
+    expect(useApp.getState().favorites).toEqual(["D:\\keep\\IMG_10.jpg"]);
+    expect(useApp.getState().folder!.files).toHaveLength(3);
+    await useApp.getState().undo();
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith("move_exact", { moves: [{ from: "D:\\keep\\IMG_10.jpg", to: files[0].path }] });
+    expect(useApp.getState().favorites).toEqual([files[0].path]);
   });
 });

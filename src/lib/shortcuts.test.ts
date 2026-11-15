@@ -69,3 +69,14 @@ describe("video viewer shortcuts", () => {
     expect(resolveShortcut({ key: "ArrowLeft", ctrlKey: true }, img)).toEqual({ type: "step", delta: -1 });
   });
 });
+
+describe("delete shortcut", () => {
+  it("Delete removes the current file for images and videos", () => {
+    expect(resolveShortcut({ key: "Delete" }, img)).toEqual({ type: "delete" });
+    expect(resolveShortcut({ key: "Delete" }, vid)).toEqual({ type: "delete" });
+  });
+  it("modified Delete does nothing", () => {
+    expect(resolveShortcut({ key: "Delete", ctrlKey: true }, img)).toBeNull();
+    expect(resolveShortcut({ key: "Delete", shiftKey: true }, img)).toBeNull();
+  });
+});

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { api } from "../lib/api";
 import { basename, compareNames, extOf, kindOf } from "../lib/formats";
-import type { ApiError, FileEntry, FolderListing, KindFilter, PersistedState, Settings, SortKey } from "../lib/types";
+import type { ApiError, FileEntry, FolderListing, KindFilter, OpResult, PersistedState, Settings, SortKey } from "../lib/types";
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: "dark",
@@ -24,7 +24,47 @@ export const DEFAULT_SETTINGS: Settings = {
   confirmBeforeLeavingVideo: false,
 };
 
-export type Section = "home" | "recent" | "favorites" | "browse" | "settings";
+export type Section = "home" | "recent" | "favorites" | "browse" | "swipe" | "settings";
+
+/** An undoable file operation (gallery / viewer). */
+export type UndoEntry =
+  | { kind: "delete"; paths: string[] }
+  | { kind: "move"; moves: { from: string; to: string }[]; dest: string };
+
+export interface ToastState {
+  id: number;
+  message: string;
+  tone: "info" | "error";
+  action?: { label: string; run: () => void };
+}
+
+export interface ConfirmRequest {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  danger?: boolean;
+  resolve: (ok: boolean) => void;
+}
+
+export interface DeleteOutcome {
+  /** Paths that are gone (recycled or permanently deleted). */
+  deleted: string[];
+  /** Subset of `deleted` that can be restored from the Recycle Bin. */
+  recycled: string[];
+  failed: OpResult[];
+}
+
+const MAX_UNDO = 30;
+
+const lower = (p: string) => p.toLowerCase();
+
+export function plural(n: number, word: string) {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+function folderName(p: string) {
+  return basename(p.replace(/[\\/]+$/, "")) || p;
+}
 
 const MAX_RECENT = 60;
 
@@ -49,7 +89,11 @@ interface AppStore {
   viewer: ViewerState | null;
   fullscreen: boolean;
   aboutOpen: boolean;
-  toast: { id: number; message: string; tone: "info" | "error" } | null;
+  toast: ToastState | null;
+  confirm: ConfirmRequest | null;
+  undoStack: UndoEntry[];
+  /** Bumped after every file operation so views can re-check what exists. */
+  fsVersion: number;
 
   init: () => Promise<void>;
   setSection: (s: Section) => void;
@@ -68,7 +112,17 @@ interface AppStore {
   toggleFavorite: (path: string) => void;
   setFullscreen: (v: boolean) => void;
   setAboutOpen: (v: boolean) => void;
-  showToast: (message: string, tone?: "info" | "error") => void;
+  showToast: (message: string, tone?: "info" | "error", action?: ToastState["action"]) => void;
+  askConfirm: (req: Omit<ConfirmRequest, "resolve">) => Promise<boolean>;
+
+  /** Delete to the Recycle Bin (asks before permanent deletion). `quiet` = no toast / undo entry. */
+  deleteFiles: (paths: string[], opts?: { quiet?: boolean; allowPermanent?: boolean }) => Promise<DeleteOutcome>;
+  /** Restore recycled files to their original location. Returns restored paths. */
+  restoreFiles: (paths: string[]) => Promise<string[]>;
+  moveFiles: (paths: string[], dest: string) => Promise<{ from: string; to: string }[]>;
+  undo: () => Promise<void>;
+  /** Drop paths from the open folder and viewer after they were deleted or moved away. */
+  forgetPaths: (paths: string[]) => void;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -131,6 +185,9 @@ export const useApp = create<AppStore>((set, get) => ({
   fullscreen: false,
   aboutOpen: false,
   toast: null,
+  confirm: null,
+  undoStack: [],
+  fsVersion: 0,
 
   init: async () => {
     try {
@@ -285,14 +342,173 @@ export const useApp = create<AppStore>((set, get) => ({
 
   setFullscreen: (fullscreen) => set({ fullscreen }),
   setAboutOpen: (aboutOpen) => set({ aboutOpen }),
-  showToast: (message, tone = "info") => {
-    const id = Date.now();
-    set({ toast: { id, message, tone } });
-    setTimeout(() => {
-      if (get().toast?.id === id) set({ toast: null });
-    }, 4200);
+  showToast: (message, tone = "info", action) => {
+    const id = Date.now() + Math.random();
+    set({ toast: { id, message, tone, action } });
+    setTimeout(
+      () => {
+        if (get().toast?.id === id) set({ toast: null });
+      },
+      action ? 8000 : 4200,
+    );
+  },
+
+  askConfirm: (req) =>
+    new Promise<boolean>((resolve) => {
+      get().confirm?.resolve(false);
+      set({
+        confirm: {
+          ...req,
+          resolve: (ok) => {
+            set({ confirm: null });
+            resolve(ok);
+          },
+        },
+      });
+    }),
+
+  forgetPaths: (paths) => {
+    if (!paths.length) return;
+    const gone = new Set(paths.map(lower));
+    const { folder, viewer } = get();
+    const patch: Partial<AppStore> = { fsVersion: get().fsVersion + 1 };
+    if (folder) patch.folder = { ...folder, files: folder.files.filter((f) => !gone.has(lower(f.path))) };
+    if (viewer) {
+      const current = viewer.items[viewer.index];
+      const items = viewer.items.filter((f) => !gone.has(lower(f.path)));
+      if (!items.length) patch.viewer = null;
+      else if (current && !gone.has(lower(current.path))) patch.viewer = { items, index: items.indexOf(current) };
+      else {
+        // Current item removed → show the one that took its place (or the new last one).
+        const before = viewer.items.slice(0, viewer.index).filter((f) => !gone.has(lower(f.path))).length;
+        patch.viewer = { items, index: Math.min(before, items.length - 1) };
+      }
+    }
+    set(patch);
+  },
+
+  deleteFiles: async (paths, opts = {}) => {
+    const out: DeleteOutcome = { deleted: [], recycled: [], failed: [] };
+    if (!paths.length) return out;
+    let res: OpResult[];
+    try {
+      res = await api.deleteFiles(paths, !!opts.allowPermanent);
+    } catch (e) {
+      get().showToast((e as ApiError).message, "error");
+      return out;
+    }
+    const needPerm = res.filter((r) => r.needsPermanent);
+    if (needPerm.length) {
+      const n = needPerm.length;
+      const ok = await get().askConfirm({
+        title: "Delete permanently?",
+        message: `${plural(n, "file")} ${n === 1 ? "is" : "are"} on a drive without a Recycle Bin (removable or network drive). Deleting ${n === 1 ? "it" : "them"} can't be undone.`,
+        confirmLabel: "Delete permanently",
+        danger: true,
+      });
+      if (ok) {
+        const perm = await api.deleteFiles(needPerm.map((r) => r.path), true).catch((): OpResult[] => []);
+        res = res.filter((r) => !r.needsPermanent).concat(perm);
+      }
+    }
+    for (const r of res) {
+      if (r.ok) {
+        out.deleted.push(r.path);
+        if (r.recycled) out.recycled.push(r.path);
+      } else if (!r.needsPermanent) out.failed.push(r);
+    }
+    get().forgetPaths(out.deleted);
+    if (opts.quiet) return out;
+    if (out.recycled.length) {
+      set({ undoStack: [...get().undoStack, { kind: "delete" as const, paths: out.recycled }].slice(-MAX_UNDO) });
+    }
+    if (out.failed.length) {
+      const f = out.failed[0];
+      const what = out.failed.length === 1 ? basename(f.path) : plural(out.failed.length, "file");
+      get().showToast(`Couldn't delete ${what}: ${f.error}`, "error");
+    } else if (out.deleted.length) {
+      const msg = out.recycled.length
+        ? `Moved ${plural(out.recycled.length, "item")} to the Recycle Bin`
+        : `Permanently deleted ${plural(out.deleted.length, "item")}`;
+      get().showToast(msg, "info", out.recycled.length ? { label: "Undo", run: () => void get().undo() } : undefined);
+    }
+    return out;
+  },
+
+  restoreFiles: async (paths) => {
+    if (!paths.length) return [];
+    try {
+      const res = await api.restoreFiles(paths);
+      const failed = res.filter((r) => !r.ok);
+      if (failed.length) get().showToast(`Couldn't restore ${basename(failed[0].path)}: ${failed[0].error}`, "error");
+      set({ fsVersion: get().fsVersion + 1 });
+      await get().refreshFolder();
+      return res.filter((r) => r.ok).map((r) => r.path);
+    } catch (e) {
+      get().showToast((e as ApiError).message, "error");
+      return [];
+    }
+  },
+
+  moveFiles: async (paths, dest) => {
+    if (!paths.length) return [];
+    let res: OpResult[];
+    try {
+      res = await api.moveFiles(paths, dest);
+    } catch (e) {
+      get().showToast((e as ApiError).message, "error");
+      return [];
+    }
+    const moves = res.filter((r) => r.ok && r.to).map((r) => ({ from: r.path, to: r.to! }));
+    const failed = res.filter((r) => !r.ok);
+    get().forgetPaths(moves.map((m) => m.from));
+    remapPaths(set, get, moves);
+    if (moves.length) set({ undoStack: [...get().undoStack, { kind: "move" as const, moves, dest }].slice(-MAX_UNDO) });
+    if (failed.length) {
+      const what = failed.length === 1 ? basename(failed[0].path) : plural(failed.length, "file");
+      get().showToast(`Couldn't move ${what}: ${failed[0].error}`, "error");
+    } else if (moves.length) {
+      get().showToast(`Moved ${plural(moves.length, "item")} to ${folderName(dest)}`, "info", { label: "Undo", run: () => void get().undo() });
+    }
+    return moves;
+  },
+
+  undo: async () => {
+    const stack = get().undoStack;
+    const last = stack[stack.length - 1];
+    if (!last) {
+      get().showToast("Nothing to undo.");
+      return;
+    }
+    set({ undoStack: stack.slice(0, -1), toast: null });
+    if (last.kind === "delete") {
+      const restored = await get().restoreFiles(last.paths);
+      if (restored.length) get().showToast(`Restored ${plural(restored.length, "item")}`);
+      return;
+    }
+    try {
+      const res = await api.moveExact(last.moves.map((m) => ({ from: m.to, to: m.from })));
+      const back = res.filter((r) => r.ok && r.to).map((r) => ({ from: r.path, to: r.to! }));
+      remapPaths(set, get, back);
+      set({ fsVersion: get().fsVersion + 1 });
+      await get().refreshFolder();
+      const failed = res.filter((r) => !r.ok);
+      if (failed.length) get().showToast(`Couldn't move back ${basename(failed[0].path)}: ${failed[0].error}`, "error");
+      else get().showToast(`Moved ${plural(back.length, "item")} back`);
+    } catch (e) {
+      get().showToast((e as ApiError).message, "error");
+    }
   },
 }));
+
+/** Keep favorites / recent pointing at files that moved. */
+function remapPaths(set: (p: Partial<AppStore>) => void, get: () => AppStore, moves: { from: string; to: string }[]) {
+  if (!moves.length) return;
+  const map = new Map(moves.map((m) => [lower(m.from), m.to]));
+  const fix = (list: string[]) => list.map((p) => map.get(lower(p)) ?? p);
+  set({ favorites: fix(get().favorites), recent: fix(get().recent) });
+  scheduleSave(get);
+}
 
 export function isFavorite(favorites: string[], path: string): boolean {
   const l = path.toLowerCase();

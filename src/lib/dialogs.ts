@@ -17,8 +17,8 @@ export async function pickFiles(): Promise<string[]> {
   return Array.isArray(res) ? res : [res];
 }
 
-export async function pickFolder(): Promise<string | null> {
-  const res = await open({ directory: true, multiple: false, title: "Browse folder — VUERIQ" });
+export async function pickFolder(title = "Browse folder — VUERIQ"): Promise<string | null> {
+  const res = await open({ directory: true, multiple: false, title });
   if (!res) return null;
   return Array.isArray(res) ? (res[0] ?? null) : res;
 }

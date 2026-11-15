@@ -180,3 +180,15 @@ export interface ApiError {
   message: string;
   detail?: string;
 }
+
+/** Per-file result of a delete / restore / move (src-tauri/src/fileops.rs). */
+export interface OpResult {
+  path: string;
+  to: string | null;
+  ok: boolean;
+  /** Sent to the Recycle Bin (restorable). */
+  recycled: boolean;
+  /** On a drive without a Recycle Bin; untouched until permanent deletion is confirmed. */
+  needsPermanent: boolean;
+  error: string | null;
+}

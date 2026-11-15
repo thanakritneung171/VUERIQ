@@ -6,6 +6,7 @@ export type ShortcutAction =
   | { type: "toggleFullscreen" }
   | { type: "toggleInfo" }
   | { type: "toggleFavorite" }
+  | { type: "delete" }
   | { type: "step"; delta: number }
   | { type: "first" }
   | { type: "last" }
@@ -45,6 +46,7 @@ export function resolveShortcut(e: KeyInput, ctx: { isVideo: boolean; fullscreen
   if (k === "F11" || (!ctrl && (k === "f" || k === "F"))) return { type: "toggleFullscreen" };
   if (!ctrl && (k === "i" || k === "I")) return { type: "toggleInfo" };
   if (!ctrl && (k === "s" || k === "S")) return { type: "toggleFavorite" };
+  if (k === "Delete" && !ctrl && !shift) return { type: "delete" };
   if (k === "PageDown" || (ctrl && k === "ArrowRight")) return { type: "step", delta: 1 };
   if (k === "PageUp" || (ctrl && k === "ArrowLeft")) return { type: "step", delta: -1 };
 

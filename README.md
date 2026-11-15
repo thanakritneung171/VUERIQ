@@ -21,6 +21,10 @@ ship inside the app.
   WMV, MPEG, 3GP, TS/MTS — with frame stepping, speed control and hardware decoding
 - **Gallery**: virtualized grid / list, async disk-cached thumbnails, sort, search, filter,
   recent files and favorites, drag &amp; drop
+- **Organise files**: select with click / Ctrl / Shift or by dragging a box, then *Move to…* or
+  *Delete* (to the Recycle Bin) — every delete and move can be undone (Ctrl+Z)
+- **Swipe Sort**: go through a folder one photo at a time — swipe right to keep, left to delete,
+  with Undo
 - **Windows integration**: installer with file associations, portable build, "Open with",
   single instance
 
@@ -58,6 +62,16 @@ types, or right-click a file → *Open with → Choose another app → VUERIQ �
 | ↑ / ↓ , M | Pan | Volume, mute |
 | F / F11, Esc | Full screen, exit / back | |
 | I, S, Ctrl+O | Info panel, favorite, open | |
+| Del | Delete (Recycle Bin), show next | Delete (Recycle Bin), show next |
+| Ctrl+Z | Undo the last delete / move | |
+
+**Gallery:** click to select, Ctrl+click to add/remove, Shift+click for a range, or drag a box
+around thumbnails (hold Ctrl/Shift to add to the selection). Ctrl+A selects all, Esc clears,
+Del deletes the selection, right-click for *Move to…* / *Delete*. Files on drives without a
+Recycle Bin (USB sticks, network shares) are only deleted after an explicit confirmation.
+
+**Swipe Sort** (sidebar → Tools): drag the photo right (or →) to keep it, left (or ←, Del) to send
+it to the Recycle Bin; Ctrl+Z, Backspace or the Undo button brings back the previous photo.
 
 ## Build from source
 

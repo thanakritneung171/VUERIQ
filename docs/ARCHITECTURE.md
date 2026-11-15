@@ -32,7 +32,9 @@ deliberate exception noted below (animated GIF/WebP/APNG and SVG playback).
 | `src/lib/tileRenderer.ts` | GPU tile renderer for still images |
 | `src/lib/viewMath.ts` | Pure zoom/pan/rotate/flip maths (unit tested) |
 | `src/lib/shortcuts.ts` | Keyboard map (unit tested) |
-| `src/store/app.ts` | App state, navigation, recent/favorites, persistence |
+| `src/lib/selection.ts` | Rubber-band / range selection and swipe-threshold maths (unit tested) |
+| `src/views/SwipeView.tsx` | Swipe Sort tool (keep / delete one photo at a time, undo history) |
+| `src/store/app.ts` | App state, navigation, recent/favorites, persistence, delete / move / undo |
 | `src-tauri/src/decode/` | Native decoders → RGBA8 sRGB, orientation applied |
 | `src-tauri/src/imagestore.rs` | Decoded image cache, mip pyramid, tiles, memory budget |
 | `src-tauri/src/thumbs.rs` | Thumbnail generation + disk cache |
@@ -40,6 +42,7 @@ deliberate exception noted below (animated GIF/WebP/APNG and SVG playback).
 | `src-tauri/src/protocol.rs` | `vq://` custom protocol (binary transfer) |
 | `src-tauri/src/color.rs` | ICC (qcms) and CICP/nclx → sRGB |
 | `src-tauri/src/assoc.rs` | Per-user file association registration |
+| `src-tauri/src/fileops.rs` | Delete to Recycle Bin, restore, move (cross-drive copy fallback) |
 
 ## Image pipeline
 
@@ -110,6 +113,20 @@ position updates).
 * **Portable**: the same exe plus DLLs and a `portable` marker file; data goes to `.\data\`.
   Settings → *Register* writes per-user ProgIDs, `OpenWithProgids`, Capabilities and
   `RegisteredApplications` under HKCU, then opens Windows *Default apps*.
+
+## File operations
+
+* **Delete** uses the Windows shell (`trash` crate → `IFileOperation` with *recycle on delete*),
+  so files land in the normal Recycle Bin. Only local fixed disks are sent there; on removable
+  and network drives (`GetDriveTypeW` ≠ `DRIVE_FIXED`) the backend refuses with
+  `needsPermanent` and the UI asks before deleting permanently.
+* **Undo of a delete** finds the item in the Recycle Bin by original path (most recent
+  deletion) and restores it with the shell. **Undo of a move** moves each file back to its
+  exact original path.
+* **Move** renames within a drive; across drives it copies, preserves the modified time, then
+  deletes the source (rolling back the copy on failure). Name clashes become `name (2).ext`.
+* Every call returns a per-file result; the UI updates the open folder, viewer, favorites and
+  recent lists from those results and offers *Undo* in a toast (stack of 30, Ctrl+Z).
 
 ## Security
 

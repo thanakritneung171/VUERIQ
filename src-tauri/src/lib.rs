@@ -5,6 +5,7 @@ pub mod color;
 pub mod decode;
 pub mod error;
 pub mod exif_util;
+pub mod fileops;
 pub mod formats;
 pub mod fsx;
 pub mod imagestore;
@@ -93,6 +94,42 @@ fn resolve_open_target(path: String) -> AppResult<fsx::OpenTarget> {
 #[tauri::command]
 fn paths_exist(paths: Vec<String>) -> Vec<bool> {
     paths.iter().map(|p| Path::new(p).exists()).collect()
+}
+
+fn to_paths(paths: &[String]) -> Vec<PathBuf> {
+    paths.iter().map(PathBuf::from).collect()
+}
+
+#[tauri::command]
+fn has_recycle_bin(path: String) -> bool {
+    fileops::has_recycle_bin(Path::new(&path))
+}
+
+#[tauri::command]
+async fn delete_files(paths: Vec<String>, allow_permanent: bool) -> AppResult<Vec<fileops::OpResult>> {
+    blocking(move || Ok(fileops::delete_files(&to_paths(&paths), allow_permanent))).await
+}
+
+#[tauri::command]
+async fn restore_files(paths: Vec<String>) -> AppResult<Vec<fileops::OpResult>> {
+    blocking(move || Ok(fileops::restore_files(&to_paths(&paths)))).await
+}
+
+#[tauri::command]
+async fn move_files(paths: Vec<String>, dest: String) -> AppResult<Vec<fileops::OpResult>> {
+    blocking(move || Ok(fileops::move_files(&to_paths(&paths), Path::new(&dest)))).await
+}
+
+#[derive(serde::Deserialize)]
+struct MovePair {
+    from: String,
+    to: String,
+}
+
+/// Move files to exact targets (used to undo a move).
+#[tauri::command]
+async fn move_exact(moves: Vec<MovePair>) -> AppResult<Vec<fileops::OpResult>> {
+    blocking(move || Ok(moves.iter().map(|m| fileops::move_file(Path::new(&m.from), Path::new(&m.to))).collect())).await
 }
 
 #[tauri::command]
@@ -361,6 +398,11 @@ pub fn run() {
             get_places,
             resolve_open_target,
             paths_exist,
+            has_recycle_bin,
+            delete_files,
+            restore_files,
+            move_files,
+            move_exact,
             open_image,
             prefetch_image,
             release_image,

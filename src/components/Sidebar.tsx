@@ -1,4 +1,4 @@
-import { Clock, FolderOpen, Home, Settings, Star } from "lucide-react";
+import { Clock, FolderOpen, GalleryHorizontalEnd, Home, Settings, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import { type Section, useApp } from "../store/app";
 import { cx } from "./ui";
@@ -33,6 +33,16 @@ export function Sidebar() {
             onClick={() => setSection(n.id)}
           />
         ))}
+      </div>
+      <div className="mt-5 mb-1.5 px-3 text-[10.5px] font-semibold tracking-wider text-fg-subtle uppercase">Tools</div>
+      <div className="space-y-0.5">
+        <NavItem
+          active={section === "swipe" && !viewerOpen}
+          dim={section === "swipe" && viewerOpen}
+          icon={<GalleryHorizontalEnd size={17} strokeWidth={1.75} />}
+          label="Swipe Sort"
+          onClick={() => setSection("swipe")}
+        />
       </div>
       <div className="mt-auto space-y-0.5 border-t border-line pt-2.5">
         <NavItem
