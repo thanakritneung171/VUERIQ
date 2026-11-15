@@ -36,8 +36,8 @@ See [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) for the verified form
 
 | Package | Use |
 |---|---|
-| `VUERIQ_1.1.0_x64-setup.exe` | Installer. Per-user (no admin) or all users. Registers file types, Start menu, uninstaller. |
-| `VUERIQ_1.1.0_x64-portable.zip` | Unzip anywhere and run `VUERIQ.exe`. Settings stay in `data\` beside the exe. Use *Settings → Windows Integration → Register* to add "Open with". |
+| `VUERIQ_1.1.1_x64-setup.exe` | Installer. Per-user (no admin) or all users. Registers file types, Start menu, uninstaller. |
+| `VUERIQ_1.1.1_x64-portable.zip` | Unzip anywhere and run `VUERIQ.exe`. Settings stay in `data\` beside the exe. Use *Settings → Windows Integration → Register* to add "Open with". |
 
 Requirements: Windows 10 1809+ or Windows 11, x64, WebView2 Runtime (pre-installed on Windows 11;
 the installer fetches it on Windows 10 if missing). The portable build needs WebView2 to be
