@@ -1,0 +1,11 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/lib/
+vendor/
+test-media/generated/
+*.log
+.DS_Store
+test-media/downloaded/
+src-tauri/lib/

@@ -1,0 +1,5 @@
+# libheif-sys locates libheif through vcpkg (built by scripts/setup-deps.ps1).
+[env]
+VCPKG_ROOT = { value = "../vendor/vcpkg", relative = true }
+VCPKGRS_DYNAMIC = "1"
+VCPKGRS_TRIPLET = "x64-windows"

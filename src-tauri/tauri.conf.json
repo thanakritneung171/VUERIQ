@@ -1,0 +1,88 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "VUERIQ",
+  "version": "1.0.0",
+  "identifier": "com.vueriq.viewer",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "VUERIQ",
+        "width": 1360,
+        "height": 860,
+        "minWidth": 880,
+        "minHeight": 560,
+        "center": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true,
+        "visible": false,
+        "dragDropEnabled": true,
+        "theme": "Dark",
+        "backgroundColor": "#0b0c0e00"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob: http://vq.localhost vq:; connect-src 'self' ipc: http://ipc.localhost http://vq.localhost vq:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:",
+      "assetProtocol": { "enable": false }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "VUERIQ",
+    "copyright": "© 2026 VUERIQ",
+    "category": "Photography",
+    "shortDescription": "Premium universal image & video viewer",
+    "longDescription": "VUERIQ — See Every Detail. A premium, high-performance image and video viewer for Windows with built-in HEIC/HEIF, AVIF, JPEG XL and camera RAW support and an mpv-based video engine. No codec extensions required.",
+    "homepage": "https://vueriq.app",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "resources": {
+      "lib/heif.dll": "heif.dll",
+      "lib/libde265.dll": "libde265.dll",
+      "lib/dav1d.dll": "dav1d.dll",
+      "lib/libmpv-2.dll": "libmpv-2.dll",
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
+      "../LICENSE.txt": "LICENSE.txt"
+    },
+    "fileAssociations": [
+      { "ext": ["jpg", "jpeg", "jpe", "jfif"], "name": "JPEG Image", "description": "JPEG image", "role": "Viewer", "mimeType": "image/jpeg" },
+      { "ext": ["png", "apng"], "name": "PNG Image", "description": "PNG image", "role": "Viewer", "mimeType": "image/png" },
+      { "ext": ["webp"], "name": "WebP Image", "description": "WebP image", "role": "Viewer", "mimeType": "image/webp" },
+      { "ext": ["gif"], "name": "GIF Image", "description": "GIF image", "role": "Viewer", "mimeType": "image/gif" },
+      { "ext": ["bmp", "dib"], "name": "Bitmap Image", "description": "Bitmap image", "role": "Viewer" },
+      { "ext": ["ico", "cur"], "name": "Icon", "description": "Windows icon", "role": "Viewer" },
+      { "ext": ["tif", "tiff"], "name": "TIFF Image", "description": "TIFF image", "role": "Viewer", "mimeType": "image/tiff" },
+      { "ext": ["svg"], "name": "SVG Image", "description": "Scalable vector graphics", "role": "Viewer", "mimeType": "image/svg+xml" },
+      { "ext": ["heic", "heif", "hif"], "name": "HEIF Image", "description": "HEIC / HEIF image", "role": "Viewer", "mimeType": "image/heic" },
+      { "ext": ["avif"], "name": "AVIF Image", "description": "AVIF image", "role": "Viewer", "mimeType": "image/avif" },
+      { "ext": ["jxl"], "name": "JPEG XL Image", "description": "JPEG XL image", "role": "Viewer", "mimeType": "image/jxl" },
+      { "ext": ["cr2", "cr3", "nef", "arw", "dng", "orf", "raf", "rw2", "pef", "srw"], "name": "Camera RAW", "description": "Camera RAW image", "role": "Viewer" },
+      { "ext": ["mp4", "m4v"], "name": "MP4 Video", "description": "MPEG-4 video", "role": "Viewer", "mimeType": "video/mp4" },
+      { "ext": ["mov"], "name": "QuickTime Movie", "description": "QuickTime movie", "role": "Viewer", "mimeType": "video/quicktime" },
+      { "ext": ["mkv"], "name": "Matroska Video", "description": "Matroska video", "role": "Viewer", "mimeType": "video/x-matroska" },
+      { "ext": ["webm"], "name": "WebM Video", "description": "WebM video", "role": "Viewer", "mimeType": "video/webm" },
+      { "ext": ["avi"], "name": "AVI Video", "description": "AVI video", "role": "Viewer" },
+      { "ext": ["wmv"], "name": "Windows Media Video", "description": "Windows Media video", "role": "Viewer" },
+      { "ext": ["mpeg", "mpg"], "name": "MPEG Video", "description": "MPEG video", "role": "Viewer" },
+      { "ext": ["3gp"], "name": "3GP Video", "description": "3GPP video", "role": "Viewer" },
+      { "ext": ["ts", "mts", "m2ts"], "name": "MPEG-TS Video", "description": "MPEG transport stream", "role": "Viewer" }
+    ],
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper" },
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "both",
+        "displayLanguageSelector": false,
+        "startMenuFolder": "VUERIQ"
+      }
+    }
+  }
+}

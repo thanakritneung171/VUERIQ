@@ -1,0 +1,13 @@
+VUERIQ — End User License
+Copyright (c) 2026 VUERIQ. All rights reserved.
+
+VUERIQ is provided "as is", without warranty of any kind, express or implied, including but not
+limited to the warranties of merchantability, fitness for a particular purpose and
+non-infringement. In no event shall the authors be liable for any claim, damages or other
+liability arising from the use of the software.
+
+VUERIQ includes third-party open-source components that are licensed under their own terms.
+Those terms are reproduced in THIRD_PARTY_NOTICES.md, which is installed alongside VUERIQ.exe.
+Nothing in this license restricts your rights under those open-source licenses. In particular,
+the LGPL-licensed libraries (libheif, libde265) are dynamically linked as separate DLLs
+(heif.dll, libde265.dll) and may be replaced with compatible versions of your choice.
