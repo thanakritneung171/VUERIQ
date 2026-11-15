@@ -2,7 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { TriangleAlert, Upload } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { AboutDialog } from "./components/AboutDialog";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { Sidebar } from "./components/Sidebar";
@@ -11,13 +11,27 @@ import { cx } from "./components/ui";
 import { api, isTauri } from "./lib/api";
 import { pickFiles } from "./lib/dialogs";
 import { useApp } from "./store/app";
-import { BrowseView } from "./views/BrowseView";
-import { CollectionView } from "./views/CollectionView";
-import { DuplicatesView } from "./views/DuplicatesView";
-import { HomeView } from "./views/HomeView";
-import { SettingsView } from "./views/SettingsView";
-import { SwipeView } from "./views/SwipeView";
 import { Viewer } from "./views/Viewer";
+
+// Only the viewer is in the startup bundle, so a file opened from Explorer shows as fast as possible.
+const BrowseView = lazy(() =>
+  import("./views/BrowseView").then((m) => ({ default: m.BrowseView })),
+);
+const CollectionView = lazy(() =>
+  import("./views/CollectionView").then((m) => ({ default: m.CollectionView })),
+);
+const DuplicatesView = lazy(() =>
+  import("./views/DuplicatesView").then((m) => ({ default: m.DuplicatesView })),
+);
+const HomeView = lazy(() =>
+  import("./views/HomeView").then((m) => ({ default: m.HomeView })),
+);
+const SettingsView = lazy(() =>
+  import("./views/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
+const SwipeView = lazy(() =>
+  import("./views/SwipeView").then((m) => ({ default: m.SwipeView })),
+);
 
 let booted = false;
 
@@ -27,6 +41,7 @@ export default function App() {
   const viewer = useApp((s) => s.viewer);
   const theme = useApp((s) => s.settings.theme);
   const fullscreen = useApp((s) => s.fullscreen);
+  const quick = useApp((s) => s.quick);
   const toast = useApp((s) => s.toast);
   const [dragOver, setDragOver] = useState(false);
 
@@ -38,7 +53,18 @@ export default function App() {
     st.init().then(async () => {
       try {
         const files = await api.launchFiles();
-        if (files.length) await useApp.getState().openPaths(files);
+        if (files.length) {
+          // Opened from Explorer → quick viewer (just the photo / video), like Photos or Media Player.
+          if (useApp.getState().settings.quickViewer)
+            useApp.setState({ quick: true });
+          const opening = useApp.getState().openPaths(files);
+          // openPaths shows the file first and lists its folder afterwards; don't wait for that.
+          if (useApp.getState().viewer) {
+            if (isTauri) getCurrentWindow().show();
+          }
+          await opening;
+          if (!useApp.getState().viewer) useApp.setState({ quick: false });
+        }
       } catch {
         /* ignore */
       }
@@ -74,7 +100,10 @@ export default function App() {
   // Theme
   useEffect(() => {
     const apply = () => {
-      const dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      const dark =
+        theme === "dark" ||
+        (theme === "system" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.classList.toggle("light", !dark);
       document.documentElement.classList.toggle("dark", dark);
       document.documentElement.style.colorScheme = dark ? "dark" : "light";
@@ -93,17 +122,26 @@ export default function App() {
         pickFiles().then((f) => {
           if (f.length) useApp.getState().openPaths(f);
         });
-      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
+      } else if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.shiftKey &&
+        (e.key === "z" || e.key === "Z")
+      ) {
         const st = useApp.getState();
-        const inField = e.target instanceof Element && e.target.closest("input, textarea");
+        const inField =
+          e.target instanceof Element && e.target.closest("input, textarea");
         // Swipe Sort has its own undo history.
-        if (inField || st.confirm || (st.section === "swipe" && !st.viewer)) return;
+        if (inField || st.confirm || (st.section === "swipe" && !st.viewer))
+          return;
         e.preventDefault();
         st.undo();
       } else if (e.key === "F5" && !useApp.getState().viewer) {
         e.preventDefault();
         useApp.getState().refreshFolder();
-      } else if ((e.ctrlKey && (e.key === "r" || e.key === "R")) || (e.ctrlKey && e.shiftKey && e.key === "I")) {
+      } else if (
+        (e.ctrlKey && (e.key === "r" || e.key === "R")) ||
+        (e.ctrlKey && e.shiftKey && e.key === "I")
+      ) {
         e.preventDefault(); // block WebView reload/devtools in production
       }
     };
@@ -114,7 +152,8 @@ export default function App() {
   // Suppress the default WebView context menu everywhere except text fields.
   useEffect(() => {
     const onCtx = (e: MouseEvent) => {
-      if (!(e.target instanceof Element && e.target.closest("input, textarea"))) e.preventDefault();
+      if (!(e.target instanceof Element && e.target.closest("input, textarea")))
+        e.preventDefault();
     };
     window.addEventListener("contextmenu", onCtx);
     return () => window.removeEventListener("contextmenu", onCtx);
@@ -127,25 +166,34 @@ export default function App() {
     <div className="flex h-full flex-col">
       {!fullscreen && <TitleBar title={title} />}
       <div className="flex min-h-0 flex-1">
-        {!fullscreen && <Sidebar />}
+        {!fullscreen && !(quick && viewer) && <Sidebar />}
         {/* No background on <main> while a video plays: the engine renders behind the WebView. */}
-        <main className={cx("relative flex min-w-0 flex-1 flex-col", !videoActive && "bg-bg")}>
+        <main
+          className={cx(
+            "relative flex min-w-0 flex-1 flex-col",
+            !videoActive && "bg-bg",
+          )}
+        >
           {!ready ? null : viewer ? (
             <Viewer />
-          ) : section === "home" ? (
-            <HomeView />
-          ) : section === "recent" ? (
-            <CollectionView kind="recent" />
-          ) : section === "favorites" ? (
-            <CollectionView kind="favorites" />
-          ) : section === "browse" ? (
-            <BrowseView />
-          ) : section === "swipe" ? (
-            <SwipeView />
-          ) : section === "duplicates" ? (
-            <DuplicatesView />
           ) : (
-            <SettingsView />
+            <Suspense fallback={null}>
+              {section === "home" ? (
+                <HomeView />
+              ) : section === "recent" ? (
+                <CollectionView kind="recent" />
+              ) : section === "favorites" ? (
+                <CollectionView kind="favorites" />
+              ) : section === "browse" ? (
+                <BrowseView />
+              ) : section === "swipe" ? (
+                <SwipeView />
+              ) : section === "duplicates" ? (
+                <DuplicatesView />
+              ) : (
+                <SettingsView />
+              )}
+            </Suspense>
           )}
         </main>
       </div>
@@ -154,20 +202,29 @@ export default function App() {
         <div className="animate-fade-in pointer-events-none fixed inset-0 z-[90] flex items-center justify-center bg-bg/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-accent/60 px-16 py-12">
             <Upload size={34} className="text-accent" />
-            <div className="text-[15px] font-medium">Drop to open in VUERIQ</div>
+            <div className="text-[15px] font-medium">
+              Drop to open in VUERIQ
+            </div>
           </div>
         </div>
       )}
 
       {toast && (
-        <div key={toast.id} className="animate-pop-in fixed bottom-20 left-1/2 z-[95] -translate-x-1/2">
+        <div
+          key={toast.id}
+          className="animate-pop-in fixed bottom-20 left-1/2 z-[95] -translate-x-1/2"
+        >
           <div
             className={cx(
               "flex items-center gap-2.5 rounded-lg border px-4 py-2.5 text-[13px] shadow-2xl",
-              toast.tone === "error" ? "border-danger/40 bg-elev text-fg" : "border-line-strong bg-elev text-fg",
+              toast.tone === "error"
+                ? "border-danger/40 bg-elev text-fg"
+                : "border-line-strong bg-elev text-fg",
             )}
           >
-            {toast.tone === "error" && <TriangleAlert size={15} className="text-danger" />}
+            {toast.tone === "error" && (
+              <TriangleAlert size={15} className="text-danger" />
+            )}
             {toast.message}
             {toast.action && (
               <button

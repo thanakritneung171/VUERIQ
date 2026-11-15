@@ -174,3 +174,37 @@ describe("file operations", () => {
     expect(useApp.getState().favorites).toEqual([files[0].path]);
   });
 });
+
+describe("opening a file from Explorer", () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+    useApp.setState({ folder: null, viewer: null, quick: false, recent: [] });
+  });
+
+  it("shows the file immediately, then swaps in its folder so ← / → work", async () => {
+    let release!: () => void;
+    const listed = new Promise<void>((r) => (release = r));
+    mockInvoke(async (cmd) => {
+      if (cmd === "resolve_open_target") return { folder: "C:\\media", file: "C:\\media\\IMG_2.HEIC" };
+      if (cmd === "list_folder") {
+        await listed;
+        return { path: "C:\\media", parent: "C:\\", dirs: [], files: [...files] };
+      }
+      return null;
+    });
+    const done = useApp.getState().openPaths(["C:\\media\\IMG_2.HEIC"]);
+    // Before the folder listing arrives the viewer already shows the file on its own.
+    expect(useApp.getState().viewer!.items.map((x) => x.name)).toEqual(["IMG_2.HEIC"]);
+    release();
+    await done;
+    const v = useApp.getState().viewer!;
+    expect(v.items).toHaveLength(4);
+    expect(v.items[v.index].name).toBe("IMG_2.HEIC");
+  });
+
+  it("closing the quick viewer returns to the full app", () => {
+    useApp.setState({ quick: true, viewer: { items: [files[0]], index: 0 } });
+    useApp.getState().closeViewer();
+    expect(useApp.getState().quick).toBe(false);
+  });
+});

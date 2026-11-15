@@ -1,7 +1,16 @@
 import { create } from "zustand";
 import { api } from "../lib/api";
 import { basename, compareNames, extOf, kindOf } from "../lib/formats";
-import type { ApiError, FileEntry, FolderListing, KindFilter, OpResult, PersistedState, Settings, SortKey } from "../lib/types";
+import type {
+  ApiError,
+  FileEntry,
+  FolderListing,
+  KindFilter,
+  OpResult,
+  PersistedState,
+  Settings,
+  SortKey,
+} from "../lib/types";
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: "dark",
@@ -22,9 +31,17 @@ export const DEFAULT_SETTINGS: Settings = {
   videoHwdec: true,
   videoLoop: false,
   confirmBeforeLeavingVideo: false,
+  quickViewer: true,
 };
 
-export type Section = "home" | "recent" | "favorites" | "browse" | "swipe" | "duplicates" | "settings";
+export type Section =
+  | "home"
+  | "recent"
+  | "favorites"
+  | "browse"
+  | "swipe"
+  | "duplicates"
+  | "settings";
 
 /** An undoable file operation (gallery / viewer). */
 export type UndoEntry =
@@ -104,6 +121,10 @@ interface AppStore {
   openViewer: (items: FileEntry[], index: number) => void;
   openPaths: (paths: string[]) => Promise<void>;
   closeViewer: () => void;
+  /** Quick viewer: just the photo / video, no sidebar or gallery (files opened from Explorer). */
+  quick: boolean;
+  /** Leave the quick viewer and show the full app (sidebar, gallery of the file's folder). */
+  exitQuick: () => void;
   step: (delta: number) => void;
   goTo: (index: number) => void;
   addRecent: (path: string) => void;
@@ -112,14 +133,24 @@ interface AppStore {
   toggleFavorite: (path: string) => void;
   setFullscreen: (v: boolean) => void;
   setAboutOpen: (v: boolean) => void;
-  showToast: (message: string, tone?: "info" | "error", action?: ToastState["action"]) => void;
+  showToast: (
+    message: string,
+    tone?: "info" | "error",
+    action?: ToastState["action"],
+  ) => void;
   askConfirm: (req: Omit<ConfirmRequest, "resolve">) => Promise<boolean>;
 
   /** Delete to the Recycle Bin (asks before permanent deletion). `quiet` = no toast / undo entry. */
-  deleteFiles: (paths: string[], opts?: { quiet?: boolean; allowPermanent?: boolean }) => Promise<DeleteOutcome>;
+  deleteFiles: (
+    paths: string[],
+    opts?: { quiet?: boolean; allowPermanent?: boolean },
+  ) => Promise<DeleteOutcome>;
   /** Restore recycled files to their original location. Returns restored paths. */
   restoreFiles: (paths: string[]) => Promise<string[]>;
-  moveFiles: (paths: string[], dest: string) => Promise<{ from: string; to: string }[]>;
+  moveFiles: (
+    paths: string[],
+    dest: string,
+  ) => Promise<{ from: string; to: string }[]>;
   undo: () => Promise<void>;
   /** Drop paths from the open folder and viewer after they were deleted or moved away. */
   forgetPaths: (paths: string[]) => void;
@@ -144,12 +175,29 @@ function scheduleSave(get: () => AppStore) {
 export function entryFromPath(path: string): FileEntry | null {
   const kind = kindOf(path);
   if (!kind) return null;
-  return { path, name: basename(path), ext: extOf(path), kind, size: 0, modified: 0 };
+  return {
+    path,
+    name: basename(path),
+    ext: extOf(path),
+    kind,
+    size: 0,
+    modified: 0,
+  };
 }
 
-export function sortAndFilter(files: FileEntry[], sortKey: SortKey, desc: boolean, filter: KindFilter, search: string): FileEntry[] {
+export function sortAndFilter(
+  files: FileEntry[],
+  sortKey: SortKey,
+  desc: boolean,
+  filter: KindFilter,
+  search: string,
+): FileEntry[] {
   const q = search.trim().toLowerCase();
-  const out = files.filter((f) => (filter === "all" || f.kind === filter) && (!q || f.name.toLowerCase().includes(q)));
+  const out = files.filter(
+    (f) =>
+      (filter === "all" || f.kind === filter) &&
+      (!q || f.name.toLowerCase().includes(q)),
+  );
   const dir = desc ? -1 : 1;
   out.sort((a, b) => {
     let c = 0;
@@ -174,6 +222,7 @@ export const useApp = create<AppStore>((set, get) => ({
   ready: false,
   section: "home",
   settings: DEFAULT_SETTINGS,
+  quick: false,
   recent: [],
   favorites: [],
   lastFolder: null,
@@ -208,7 +257,7 @@ export const useApp = create<AppStore>((set, get) => ({
   },
 
   setSection: (section) => {
-    set({ section, viewer: null });
+    set({ section, viewer: null, quick: false });
     if (section === "browse" && !get().folder && get().lastFolder) {
       get().openFolder(get().lastFolder!);
     }
@@ -216,12 +265,18 @@ export const useApp = create<AppStore>((set, get) => ({
 
   updateSettings: (patch) => {
     set({ settings: { ...get().settings, ...patch } });
-    if (patch.memoryBudgetMb) api.setMemoryBudget(patch.memoryBudgetMb).catch(() => {});
+    if (patch.memoryBudgetMb)
+      api.setMemoryBudget(patch.memoryBudgetMb).catch(() => {});
     scheduleSave(get);
   },
 
   openFolder: async (path) => {
-    set({ folderLoading: true, folderError: null, section: "browse", search: "" });
+    set({
+      folderLoading: true,
+      folderError: null,
+      section: "browse",
+      search: "",
+    });
     try {
       const listing = await api.listFolder(path);
       set({ folder: listing, folderLoading: false, lastFolder: listing.path });
@@ -267,40 +322,65 @@ export const useApp = create<AppStore>((set, get) => ({
           /* fallthrough */
         }
       }
-      if (paths.length) get().showToast("None of the dropped items are supported media files.", "error");
+      if (paths.length)
+        get().showToast(
+          "None of the dropped items are supported media files.",
+          "error",
+        );
       return;
     }
     if (media.length === 1) {
-      // Single file: open it within the context of its folder so ← / → work.
+      // Show the file right away, then list its folder in the background so ← / → work.
+      const first = entryFromPath(media[0]);
+      if (first) get().openViewer([first], 0);
+      const target = media[0].toLowerCase();
       try {
         const t = await api.resolveOpenTarget(media[0]);
         const listing = await api.listFolder(t.folder);
-        set({ folder: listing, lastFolder: listing.path, section: "browse", search: "" });
+        set({
+          folder: listing,
+          lastFolder: listing.path,
+          section: "browse",
+          search: "",
+        });
         const s = get().settings;
-        const items = sortAndFilter(listing.files, s.sortKey, s.sortDesc, "all", "");
-        const idx = items.findIndex((f) => f.path.toLowerCase() === media[0].toLowerCase());
-        if (idx >= 0) {
-          get().openViewer(items, idx);
-          return;
+        const items = sortAndFilter(
+          listing.files,
+          s.sortKey,
+          s.sortDesc,
+          "all",
+          "",
+        );
+        const idx = items.findIndex((f) => f.path.toLowerCase() === target);
+        const v = get().viewer;
+        // Only swap in the folder if the user is still looking at that single file.
+        if (
+          idx >= 0 &&
+          v &&
+          v.items.length === 1 &&
+          v.items[0].path.toLowerCase() === target
+        ) {
+          set({ viewer: { items, index: idx } });
         }
       } catch {
-        /* folder unreadable → open file alone */
+        /* folder unreadable → keep the file alone */
       }
-      const e = entryFromPath(media[0]);
-      if (e) get().openViewer([e], 0);
       return;
     }
     const entries = media.map(entryFromPath).filter(Boolean) as FileEntry[];
     get().openViewer(entries, 0);
   },
 
-  closeViewer: () => set({ viewer: null }),
+  closeViewer: () => set({ viewer: null, quick: false }),
+
+  exitQuick: () => set({ quick: false }),
 
   step: (delta) => {
     const v = get().viewer;
     if (!v || v.items.length < 2) return;
     let i = v.index + delta;
-    if (get().settings.loopNavigation) i = (i + v.items.length) % v.items.length;
+    if (get().settings.loopNavigation)
+      i = (i + v.items.length) % v.items.length;
     else i = Math.max(0, Math.min(v.items.length - 1, i));
     if (i === v.index) return;
     set({ viewer: { ...v, index: i } });
@@ -317,7 +397,10 @@ export const useApp = create<AppStore>((set, get) => ({
 
   addRecent: (path) => {
     const lower = path.toLowerCase();
-    const recent = [path, ...get().recent.filter((p) => p.toLowerCase() !== lower)].slice(0, MAX_RECENT);
+    const recent = [
+      path,
+      ...get().recent.filter((p) => p.toLowerCase() !== lower),
+    ].slice(0, MAX_RECENT);
     set({ recent });
     scheduleSave(get);
   },
@@ -336,7 +419,11 @@ export const useApp = create<AppStore>((set, get) => ({
     const lower = path.toLowerCase();
     const favs = get().favorites;
     const has = favs.some((p) => p.toLowerCase() === lower);
-    set({ favorites: has ? favs.filter((p) => p.toLowerCase() !== lower) : [path, ...favs] });
+    set({
+      favorites: has
+        ? favs.filter((p) => p.toLowerCase() !== lower)
+        : [path, ...favs],
+    });
     scheduleSave(get);
   },
 
@@ -372,15 +459,24 @@ export const useApp = create<AppStore>((set, get) => ({
     const gone = new Set(paths.map(lower));
     const { folder, viewer } = get();
     const patch: Partial<AppStore> = { fsVersion: get().fsVersion + 1 };
-    if (folder) patch.folder = { ...folder, files: folder.files.filter((f) => !gone.has(lower(f.path))) };
+    if (folder)
+      patch.folder = {
+        ...folder,
+        files: folder.files.filter((f) => !gone.has(lower(f.path))),
+      };
     if (viewer) {
       const current = viewer.items[viewer.index];
       const items = viewer.items.filter((f) => !gone.has(lower(f.path)));
-      if (!items.length) patch.viewer = null;
-      else if (current && !gone.has(lower(current.path))) patch.viewer = { items, index: items.indexOf(current) };
+      if (!items.length) {
+        patch.viewer = null;
+        patch.quick = false;
+      } else if (current && !gone.has(lower(current.path)))
+        patch.viewer = { items, index: items.indexOf(current) };
       else {
         // Current item removed → show the one that took its place (or the new last one).
-        const before = viewer.items.slice(0, viewer.index).filter((f) => !gone.has(lower(f.path))).length;
+        const before = viewer.items
+          .slice(0, viewer.index)
+          .filter((f) => !gone.has(lower(f.path))).length;
         patch.viewer = { items, index: Math.min(before, items.length - 1) };
       }
     }
@@ -407,7 +503,12 @@ export const useApp = create<AppStore>((set, get) => ({
         danger: true,
       });
       if (ok) {
-        const perm = await api.deleteFiles(needPerm.map((r) => r.path), true).catch((): OpResult[] => []);
+        const perm = await api
+          .deleteFiles(
+            needPerm.map((r) => r.path),
+            true,
+          )
+          .catch((): OpResult[] => []);
         res = res.filter((r) => !r.needsPermanent).concat(perm);
       }
     }
@@ -420,17 +521,31 @@ export const useApp = create<AppStore>((set, get) => ({
     get().forgetPaths(out.deleted);
     if (opts.quiet) return out;
     if (out.recycled.length) {
-      set({ undoStack: [...get().undoStack, { kind: "delete" as const, paths: out.recycled }].slice(-MAX_UNDO) });
+      set({
+        undoStack: [
+          ...get().undoStack,
+          { kind: "delete" as const, paths: out.recycled },
+        ].slice(-MAX_UNDO),
+      });
     }
     if (out.failed.length) {
       const f = out.failed[0];
-      const what = out.failed.length === 1 ? basename(f.path) : plural(out.failed.length, "file");
+      const what =
+        out.failed.length === 1
+          ? basename(f.path)
+          : plural(out.failed.length, "file");
       get().showToast(`Couldn't delete ${what}: ${f.error}`, "error");
     } else if (out.deleted.length) {
       const msg = out.recycled.length
         ? `Moved ${plural(out.recycled.length, "item")} to the Recycle Bin`
         : `Permanently deleted ${plural(out.deleted.length, "item")}`;
-      get().showToast(msg, "info", out.recycled.length ? { label: "Undo", run: () => void get().undo() } : undefined);
+      get().showToast(
+        msg,
+        "info",
+        out.recycled.length
+          ? { label: "Undo", run: () => void get().undo() }
+          : undefined,
+      );
     }
     return out;
   },
@@ -440,7 +555,11 @@ export const useApp = create<AppStore>((set, get) => ({
     try {
       const res = await api.restoreFiles(paths);
       const failed = res.filter((r) => !r.ok);
-      if (failed.length) get().showToast(`Couldn't restore ${basename(failed[0].path)}: ${failed[0].error}`, "error");
+      if (failed.length)
+        get().showToast(
+          `Couldn't restore ${basename(failed[0].path)}: ${failed[0].error}`,
+          "error",
+        );
       set({ fsVersion: get().fsVersion + 1 });
       await get().refreshFolder();
       return res.filter((r) => r.ok).map((r) => r.path);
@@ -459,16 +578,31 @@ export const useApp = create<AppStore>((set, get) => ({
       get().showToast((e as ApiError).message, "error");
       return [];
     }
-    const moves = res.filter((r) => r.ok && r.to).map((r) => ({ from: r.path, to: r.to! }));
+    const moves = res
+      .filter((r) => r.ok && r.to)
+      .map((r) => ({ from: r.path, to: r.to! }));
     const failed = res.filter((r) => !r.ok);
     get().forgetPaths(moves.map((m) => m.from));
     remapPaths(set, get, moves);
-    if (moves.length) set({ undoStack: [...get().undoStack, { kind: "move" as const, moves, dest }].slice(-MAX_UNDO) });
+    if (moves.length)
+      set({
+        undoStack: [
+          ...get().undoStack,
+          { kind: "move" as const, moves, dest },
+        ].slice(-MAX_UNDO),
+      });
     if (failed.length) {
-      const what = failed.length === 1 ? basename(failed[0].path) : plural(failed.length, "file");
+      const what =
+        failed.length === 1
+          ? basename(failed[0].path)
+          : plural(failed.length, "file");
       get().showToast(`Couldn't move ${what}: ${failed[0].error}`, "error");
     } else if (moves.length) {
-      get().showToast(`Moved ${plural(moves.length, "item")} to ${folderName(dest)}`, "info", { label: "Undo", run: () => void get().undo() });
+      get().showToast(
+        `Moved ${plural(moves.length, "item")} to ${folderName(dest)}`,
+        "info",
+        { label: "Undo", run: () => void get().undo() },
+      );
     }
     return moves;
   },
@@ -483,17 +617,26 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ undoStack: stack.slice(0, -1), toast: null });
     if (last.kind === "delete") {
       const restored = await get().restoreFiles(last.paths);
-      if (restored.length) get().showToast(`Restored ${plural(restored.length, "item")}`);
+      if (restored.length)
+        get().showToast(`Restored ${plural(restored.length, "item")}`);
       return;
     }
     try {
-      const res = await api.moveExact(last.moves.map((m) => ({ from: m.to, to: m.from })));
-      const back = res.filter((r) => r.ok && r.to).map((r) => ({ from: r.path, to: r.to! }));
+      const res = await api.moveExact(
+        last.moves.map((m) => ({ from: m.to, to: m.from })),
+      );
+      const back = res
+        .filter((r) => r.ok && r.to)
+        .map((r) => ({ from: r.path, to: r.to! }));
       remapPaths(set, get, back);
       set({ fsVersion: get().fsVersion + 1 });
       await get().refreshFolder();
       const failed = res.filter((r) => !r.ok);
-      if (failed.length) get().showToast(`Couldn't move back ${basename(failed[0].path)}: ${failed[0].error}`, "error");
+      if (failed.length)
+        get().showToast(
+          `Couldn't move back ${basename(failed[0].path)}: ${failed[0].error}`,
+          "error",
+        );
       else get().showToast(`Moved ${plural(back.length, "item")} back`);
     } catch (e) {
       get().showToast((e as ApiError).message, "error");
@@ -502,7 +645,11 @@ export const useApp = create<AppStore>((set, get) => ({
 }));
 
 /** Keep favorites / recent pointing at files that moved. */
-function remapPaths(set: (p: Partial<AppStore>) => void, get: () => AppStore, moves: { from: string; to: string }[]) {
+function remapPaths(
+  set: (p: Partial<AppStore>) => void,
+  get: () => AppStore,
+  moves: { from: string; to: string }[],
+) {
   if (!moves.length) return;
   const map = new Map(moves.map((m) => [lower(m.from), m.to]));
   const fix = (list: string[]) => list.map((p) => map.get(lower(p)) ?? p);
@@ -516,4 +663,5 @@ export function isFavorite(favorites: string[], path: string): boolean {
 }
 
 // Dev-only handle for automated UI checks over DevTools.
-if (import.meta.env.DEV) (window as unknown as { __vq: typeof useApp }).__vq = useApp;
+if (import.meta.env.DEV)
+  (window as unknown as { __vq: typeof useApp }).__vq = useApp;

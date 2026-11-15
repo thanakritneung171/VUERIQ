@@ -64,17 +64,20 @@ mod imp {
         status_at(PROD_PREFIX, &exe_path())
     }
 
-    pub fn status_at(prefix: &str, exe: &str) -> AssociationStatus {
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let registered = hkcu
-            .open_subkey(format!(r"{prefix}\RegisteredApplications"))
+    fn registered_in(root: &RegKey, prefix: &str, exe: &str) -> bool {
+        root.open_subkey(format!(r"{prefix}\RegisteredApplications"))
             .and_then(|k| k.get_value::<String, _>("VUERIQ"))
             .is_ok()
-            && hkcu
+            && root
                 .open_subkey(format!(r"{prefix}\Classes\{PROGID_IMAGE}\shell\open\command"))
                 .and_then(|k| k.get_value::<String, _>(""))
-                .map(|v| v.contains(exe))
-                .unwrap_or(false);
+                .map(|v| v.to_lowercase().contains(&exe.to_lowercase()))
+                .unwrap_or(false)
+    }
+
+    pub fn status_at(prefix: &str, exe: &str) -> AssociationStatus {
+        let registered = registered_in(&RegKey::predef(HKEY_CURRENT_USER), prefix, exe)
+            || (prefix == PROD_PREFIX && registered_in(&RegKey::predef(HKEY_LOCAL_MACHINE), prefix, exe));
         AssociationStatus { registered, exe_path: exe.to_string(), portable: is_portable() }
     }
 
@@ -84,8 +87,23 @@ mod imp {
         Ok(())
     }
 
+    /// Installer entry point: an all-users install (exe under Program Files, run elevated) registers
+    /// in HKLM so every account gets "Open with VUERIQ"; otherwise HKCU.
+    pub fn register_for_install() -> AppResult<()> {
+        let exe = exe_path();
+        let pf = std::env::var("ProgramFiles").unwrap_or_default().to_lowercase();
+        if !pf.is_empty() && exe.to_lowercase().starts_with(&pf) && register_in(&RegKey::predef(HKEY_LOCAL_MACHINE), PROD_PREFIX, &exe).is_ok() {
+            notify_shell();
+            return Ok(());
+        }
+        register()
+    }
+
     pub fn register_at(prefix: &str, exe: &str) -> AppResult<()> {
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        register_in(&RegKey::predef(HKEY_CURRENT_USER), prefix, exe)
+    }
+
+    fn register_in(hkcu: &RegKey, prefix: &str, exe: &str) -> AppResult<()> {
         let caps_key = format!(r"{prefix}\VUERIQ\Capabilities");
         let classes = hkcu.create_subkey(format!(r"{prefix}\Classes")).map_err(e)?.0;
         let cmd = format!("\"{exe}\" \"%1\"");
@@ -137,8 +155,18 @@ mod imp {
         Ok(())
     }
 
+    /// Uninstaller entry point: remove the per-user and (when permitted) the all-users entries.
+    pub fn unregister_for_install() {
+        let _ = unregister_in(&RegKey::predef(HKEY_CURRENT_USER), PROD_PREFIX);
+        let _ = unregister_in(&RegKey::predef(HKEY_LOCAL_MACHINE), PROD_PREFIX);
+        notify_shell();
+    }
+
     pub fn unregister_at(prefix: &str) -> AppResult<()> {
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        unregister_in(&RegKey::predef(HKEY_CURRENT_USER), prefix)
+    }
+
+    fn unregister_in(hkcu: &RegKey, prefix: &str) -> AppResult<()> {
         if let Ok(classes) = hkcu.open_subkey_with_flags(format!(r"{prefix}\Classes"), KEY_ALL_ACCESS) {
             let _ = classes.delete_subkey_all(PROGID_IMAGE);
             let _ = classes.delete_subkey_all(PROGID_VIDEO);
@@ -158,7 +186,7 @@ mod imp {
 }
 
 #[cfg(windows)]
-pub use imp::{register, register_at, status, status_at, unregister, unregister_at};
+pub use imp::{register, register_at, register_for_install, status, status_at, unregister, unregister_at, unregister_for_install};
 
 #[cfg(not(windows))]
 pub fn status() -> AssociationStatus {
@@ -172,3 +200,9 @@ pub fn register() -> AppResult<()> {
 pub fn unregister() -> AppResult<()> {
     Ok(())
 }
+#[cfg(not(windows))]
+pub fn register_for_install() -> AppResult<()> {
+    register()
+}
+#[cfg(not(windows))]
+pub fn unregister_for_install() {}

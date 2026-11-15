@@ -157,6 +157,8 @@ export interface Settings {
   videoHwdec: boolean;
   videoLoop: boolean;
   confirmBeforeLeavingVideo: boolean;
+  /** Files opened from Explorer show in the lightweight quick viewer (no sidebar / gallery). */
+  quickViewer: boolean;
 }
 
 export interface PersistedState {

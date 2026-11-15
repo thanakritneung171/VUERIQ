@@ -119,6 +119,12 @@ export function SettingsView() {
 
         <Group title="Windows Integration">
           <Row
+            label="Quick viewer for opened files"
+            hint="Files opened from Explorer show on their own, without the sidebar or gallery — like Photos or Media Player. ← / → still browse the folder."
+          >
+            <Toggle label="Quick viewer" checked={s.quickViewer} onChange={(v) => update({ quickViewer: v })} />
+          </Row>
+          <Row
             label="Open supported files with VUERIQ"
             hint={
               assoc?.registered

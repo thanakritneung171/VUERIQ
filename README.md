@@ -27,7 +27,11 @@ ship inside the app.
   with Undo
 - **Find Duplicates**: byte-identical copies of any photo or video, plus similar-looking photos
   (re-saved, resized, HEIC ↔ JPG); auto-select keeps the best copy, delete or move the rest
-- **Windows integration**: installer with file associations, portable build, "Open with",
+- **Quick viewer**: a photo or video opened from Explorer shows on its own — no sidebar or gallery,
+  like Photos / Media Player — and starts decoding before the window is even up; ← / → browse the
+  folder, the grid button opens the full app
+- **Windows integration**: installer with file associations (listed in *Open with* for every
+  supported type), portable build, "Open with",
   single instance
 
 See [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) for the verified format matrix.
@@ -36,12 +40,16 @@ See [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) for the verified form
 
 | Package | Use |
 |---|---|
-| `VUERIQ_1.1.1_x64-setup.exe` | Installer. Per-user (no admin) or all users. Registers file types, Start menu, uninstaller. |
-| `VUERIQ_1.1.1_x64-portable.zip` | Unzip anywhere and run `VUERIQ.exe`. Settings stay in `data\` beside the exe. Use *Settings → Windows Integration → Register* to add "Open with". |
+| `VUERIQ_1.2.0_x64-setup.exe` | Installer. Per-user (no admin) or all users. Registers file types, Start menu, uninstaller. |
+| `VUERIQ_1.2.0_x64-portable.zip` | Unzip anywhere and run `VUERIQ.exe`. Settings stay in `data\` beside the exe. Use *Settings → Windows Integration → Register* to add "Open with". |
 
 Requirements: Windows 10 1809+ or Windows 11, x64, WebView2 Runtime (pre-installed on Windows 11;
 the installer fetches it on Windows 10 if missing). The portable build needs WebView2 to be
 present already.
+
+**Quick viewer:** files opened from Explorer open in the quick viewer. Esc only leaves full screen
+there; the grid button at the top left shows the folder in the full app. Turn it off in
+*Settings → Windows Integration → Quick viewer for opened files*.
 
 **Make VUERIQ the default viewer:** Windows requires the user to choose. After installing (or
 registering the portable build) open *Settings → Apps → Default apps → VUERIQ* and pick the file

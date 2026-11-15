@@ -60,7 +60,8 @@ fn args_to_paths(args: impl IntoIterator<Item = String>, cwd: Option<&Path>) -> 
             }
         })
         .filter(|p| p.exists())
-        .map(|p| p.to_string_lossy().into_owned())
+        // Rebuild from components: drops doubled separators and "." so the path matches folder listings.
+        .map(|p| p.components().collect::<PathBuf>().to_string_lossy().into_owned())
         .collect()
 }
 
@@ -400,6 +401,16 @@ pub fn run() {
             store.set_budget(1536 * 1024 * 1024);
             let thumbs = Arc::new(ThumbCache::new(cache_dir.join("thumbs")));
             let launch = args_to_paths(std::env::args().skip(1), std::env::current_dir().ok().as_deref());
+            // Opened from Explorer: start decoding the photo now, while the WebView is still loading.
+            if let [first] = launch.as_slice() {
+                let p = PathBuf::from(first);
+                if formats::kind_for(&p) == Some(formats::MediaKind::Image) {
+                    let store = store.clone();
+                    std::thread::spawn(move || {
+                        let _ = store.open(&p, false);
+                    });
+                }
+            }
             app.manage(AppState {
                 store,
                 thumbs,

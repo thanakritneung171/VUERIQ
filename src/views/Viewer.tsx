@@ -8,6 +8,7 @@ import {
   FlipVertical2,
   FolderOpen,
   Info,
+  LayoutGrid,
   Maximize,
   Minimize,
   MoreHorizontal,
@@ -20,7 +21,11 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ImageView, type ImageViewHandle, type ZoomMode } from "../components/ImageView";
+import {
+  ImageView,
+  type ImageViewHandle,
+  type ZoomMode,
+} from "../components/ImageView";
 import { InfoPanel } from "../components/InfoPanel";
 import { IconButton, Menu, cx } from "../components/ui";
 import { VideoView, type VideoViewHandle } from "../components/VideoView";
@@ -39,6 +44,7 @@ export function Viewer() {
   const step = useApp((s) => s.step);
   const goTo = useApp((s) => s.goTo);
   const fullscreen = useApp((s) => s.fullscreen);
+  const quick = useApp((s) => s.quick);
   const deleteFiles = useApp((s) => s.deleteFiles);
   const setFullscreen = useApp((s) => s.setFullscreen);
 
@@ -78,7 +84,8 @@ export function Viewer() {
         }
         setInfo(i);
         setLoading(false);
-        if (prevId.current !== null && prevId.current !== i.id) api.releaseImage(prevId.current).catch(() => {});
+        if (prevId.current !== null && prevId.current !== i.id)
+          api.releaseImage(prevId.current).catch(() => {});
         prevId.current = i.id;
       })
       .catch((e) => {
@@ -99,7 +106,9 @@ export function Viewer() {
     if (n < 2) return;
     const ids = [viewer.index + 1, viewer.index - 1].map((i) => (i + n) % n);
     const t = setTimeout(() => {
-      for (const i of ids) if (viewer.items[i].kind === "image") api.prefetchImage(viewer.items[i].path).catch(() => {});
+      for (const i of ids)
+        if (viewer.items[i].kind === "image")
+          api.prefetchImage(viewer.items[i].path).catch(() => {});
     }, 150);
     return () => clearTimeout(t);
   }, [viewer.index, viewer.items, loading]);
@@ -107,7 +116,8 @@ export function Viewer() {
   // Release decoded image when leaving the viewer.
   useEffect(
     () => () => {
-      if (prevId.current !== null) api.releaseImage(prevId.current).catch(() => {});
+      if (prevId.current !== null)
+        api.releaseImage(prevId.current).catch(() => {});
     },
     [],
   );
@@ -141,7 +151,8 @@ export function Viewer() {
   const pokeChrome = useCallback(() => {
     setChrome(true);
     clearTimeout(chromeTimer.current);
-    if (useApp.getState().fullscreen) chromeTimer.current = setTimeout(() => setChrome(false), 2200);
+    if (useApp.getState().fullscreen)
+      chromeTimer.current = setTimeout(() => setChrome(false), 2200);
   }, []);
   useEffect(() => {
     pokeChrome();
@@ -150,42 +161,110 @@ export function Viewer() {
   // Keyboard shortcuts (mapping lives in lib/shortcuts.ts)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof Element && e.target.closest("input, textarea, select, [role=menu]")) return;
-      const a = resolveShortcut(e, { isVideo, fullscreen: useApp.getState().fullscreen });
+      if (
+        e.target instanceof Element &&
+        e.target.closest("input, textarea, select, [role=menu]")
+      )
+        return;
+      const a = resolveShortcut(e, {
+        isVideo,
+        fullscreen: useApp.getState().fullscreen,
+      });
       if (!a) return;
       const v = videoRef.current;
       const im = imageRef.current;
       switch (a.type) {
-        case "close": closeViewer(); break;
-        case "exitFullscreen": exitFullscreen(); break;
-        case "toggleFullscreen": toggleFullscreen(); break;
-        case "toggleInfo": updateSettings({ showInfoPanel: !useApp.getState().settings.showInfoPanel }); break;
-        case "toggleFavorite": toggleFavorite(file.path); break;
-        case "delete": deleteCurrent(); break;
-        case "step": step(a.delta); break;
-        case "first": goTo(0); break;
-        case "last": goTo(viewer.items.length - 1); break;
-        case "zoomIn": im?.zoomIn(); break;
-        case "zoomOut": im?.zoomOut(); break;
-        case "fit": im?.fit(); break;
-        case "actualSize": im?.actualSize(); break;
-        case "rotate": im?.rotate(a.dir); break;
-        case "flip": im?.flip(a.axis); break;
-        case "pan": im?.pan(a.dx, a.dy); break;
-        case "togglePlay": v?.togglePlay(); break;
-        case "seek": v?.seekRelative(a.seconds); break;
-        case "seekStart": v?.seekAbsolute(0); break;
-        case "volume": v?.changeVolume(a.delta); break;
-        case "mute": v?.toggleMute(); break;
-        case "frameStep": v?.frameStep(a.dir); break;
-        case "speed": v?.changeSpeed(a.dir); break;
+        // The quick viewer has no gallery to go back to; Esc only leaves full screen there.
+        case "close":
+          if (!useApp.getState().quick) closeViewer();
+          break;
+        case "exitFullscreen":
+          exitFullscreen();
+          break;
+        case "toggleFullscreen":
+          toggleFullscreen();
+          break;
+        case "toggleInfo":
+          updateSettings({
+            showInfoPanel: !useApp.getState().settings.showInfoPanel,
+          });
+          break;
+        case "toggleFavorite":
+          toggleFavorite(file.path);
+          break;
+        case "delete":
+          deleteCurrent();
+          break;
+        case "step":
+          step(a.delta);
+          break;
+        case "first":
+          goTo(0);
+          break;
+        case "last":
+          goTo(viewer.items.length - 1);
+          break;
+        case "zoomIn":
+          im?.zoomIn();
+          break;
+        case "zoomOut":
+          im?.zoomOut();
+          break;
+        case "fit":
+          im?.fit();
+          break;
+        case "actualSize":
+          im?.actualSize();
+          break;
+        case "rotate":
+          im?.rotate(a.dir);
+          break;
+        case "flip":
+          im?.flip(a.axis);
+          break;
+        case "pan":
+          im?.pan(a.dx, a.dy);
+          break;
+        case "togglePlay":
+          v?.togglePlay();
+          break;
+        case "seek":
+          v?.seekRelative(a.seconds);
+          break;
+        case "seekStart":
+          v?.seekAbsolute(0);
+          break;
+        case "volume":
+          v?.changeVolume(a.delta);
+          break;
+        case "mute":
+          v?.toggleMute();
+          break;
+        case "frameStep":
+          v?.frameStep(a.dir);
+          break;
+        case "speed":
+          v?.changeSpeed(a.dir);
+          break;
       }
       e.preventDefault();
       e.stopPropagation();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [file.path, isVideo, viewer.items.length, step, goTo, closeViewer, toggleFullscreen, exitFullscreen, toggleFavorite, updateSettings, deleteCurrent]);
+  }, [
+    file.path,
+    isVideo,
+    viewer.items.length,
+    step,
+    goTo,
+    closeViewer,
+    toggleFullscreen,
+    exitFullscreen,
+    toggleFavorite,
+    updateSettings,
+    deleteCurrent,
+  ]);
 
   const onScaleChange = useCallback((s: number, mode: ZoomMode) => {
     setScale(s);
@@ -203,9 +282,15 @@ export function Viewer() {
           : settings.viewerBackground === "gray"
             ? "bg-[#3a3b3f]"
             : "bg-bg";
-  const bgStyle = settings.viewerBackground === "custom" ? { background: settings.customBackground } : undefined;
+  const bgStyle =
+    settings.viewerBackground === "custom"
+      ? { background: settings.customBackground }
+      : undefined;
   const showInfo = settings.showInfoPanel && !fullscreen;
-  const counter = viewer.items.length > 1 ? `${viewer.index + 1} / ${viewer.items.length}` : null;
+  const counter =
+    viewer.items.length > 1
+      ? `${viewer.index + 1} / ${viewer.items.length}`
+      : null;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1" onMouseMove={pokeChrome}>
@@ -214,24 +299,61 @@ export function Viewer() {
         <div
           className={cx(
             "z-20 flex h-11 shrink-0 items-center gap-1 border-b border-line bg-panel px-2 transition-all duration-300",
-            fullscreen && "absolute inset-x-0 top-0 border-transparent bg-panel/85 backdrop-blur-md",
-            fullscreen && !chrome && "pointer-events-none -translate-y-full opacity-0",
+            fullscreen &&
+              "absolute inset-x-0 top-0 border-transparent bg-panel/85 backdrop-blur-md",
+            fullscreen &&
+              !chrome &&
+              "pointer-events-none -translate-y-full opacity-0",
           )}
         >
-          <IconButton label="Back to gallery" shortcut="Esc" onClick={() => (fullscreen ? exitFullscreen().then(closeViewer) : closeViewer())}>
-            <ArrowLeft size={17} />
-          </IconButton>
-          <IconButton label="Previous" shortcut="←" disabled={viewer.items.length < 2} onClick={() => step(-1)}>
+          {quick ? (
+            <IconButton
+              label="Show folder in VUERIQ"
+              onClick={() =>
+                fullscreen ? exitFullscreen().then(closeViewer) : closeViewer()
+              }
+            >
+              <LayoutGrid size={16} />
+            </IconButton>
+          ) : (
+            <IconButton
+              label="Back to gallery"
+              shortcut="Esc"
+              onClick={() =>
+                fullscreen ? exitFullscreen().then(closeViewer) : closeViewer()
+              }
+            >
+              <ArrowLeft size={17} />
+            </IconButton>
+          )}
+          <IconButton
+            label="Previous"
+            shortcut="←"
+            disabled={viewer.items.length < 2}
+            onClick={() => step(-1)}
+          >
             <ChevronLeft size={18} />
           </IconButton>
-          <IconButton label="Next" shortcut="→" disabled={viewer.items.length < 2} onClick={() => step(1)}>
+          <IconButton
+            label="Next"
+            shortcut="→"
+            disabled={viewer.items.length < 2}
+            onClick={() => step(1)}
+          >
             <ChevronRight size={18} />
           </IconButton>
           <div className="mx-2 flex min-w-0 items-baseline gap-2">
-            <span className="truncate text-[13px] font-medium" title={file.path}>
+            <span
+              className="truncate text-[13px] font-medium"
+              title={file.path}
+            >
               {file.name}
             </span>
-            {counter && <span className="shrink-0 text-[12px] tabular-nums text-fg-subtle">{counter}</span>}
+            {counter && (
+              <span className="shrink-0 text-[12px] tabular-nums text-fg-subtle">
+                {counter}
+              </span>
+            )}
             {info && (
               <span className="hidden shrink-0 text-[12px] tabular-nums text-fg-subtle xl:inline">
                 {info.width} × {info.height}
@@ -242,7 +364,12 @@ export function Viewer() {
           <div className="ml-auto flex items-center gap-0.5">
             {!isVideo && (
               <>
-                <IconButton label="Zoom out" shortcut="−" disabled={!info} onClick={() => imageRef.current?.zoomOut()}>
+                <IconButton
+                  label="Zoom out"
+                  shortcut="−"
+                  disabled={!info}
+                  onClick={() => imageRef.current?.zoomOut()}
+                >
                   <ZoomOut size={17} />
                 </IconButton>
                 <button
@@ -254,41 +381,98 @@ export function Viewer() {
                 >
                   {Math.round(scale * 100)}%
                 </button>
-                <IconButton label="Zoom in" shortcut="+" disabled={!info} onClick={() => imageRef.current?.zoomIn()}>
+                <IconButton
+                  label="Zoom in"
+                  shortcut="+"
+                  disabled={!info}
+                  onClick={() => imageRef.current?.zoomIn()}
+                >
                   <ZoomIn size={17} />
                 </IconButton>
-                <IconButton label="Fit to window" shortcut="0" active={zoomMode === "fit"} disabled={!info} onClick={() => imageRef.current?.fit()}>
+                <IconButton
+                  label="Fit to window"
+                  shortcut="0"
+                  active={zoomMode === "fit"}
+                  disabled={!info}
+                  onClick={() => imageRef.current?.fit()}
+                >
                   <Expand size={16} />
                 </IconButton>
-                <IconButton label="Actual size (100%)" shortcut="1" active={zoomMode !== "fit" && Math.abs(scale - 1) < 1e-3} disabled={!info} onClick={() => imageRef.current?.actualSize()}>
+                <IconButton
+                  label="Actual size (100%)"
+                  shortcut="1"
+                  active={zoomMode !== "fit" && Math.abs(scale - 1) < 1e-3}
+                  disabled={!info}
+                  onClick={() => imageRef.current?.actualSize()}
+                >
                   <Scan size={16} />
                 </IconButton>
                 <div className="mx-1.5 h-5 w-px bg-line" />
-                <IconButton label="Rotate left" shortcut="L" disabled={!info} onClick={() => imageRef.current?.rotate(-1)}>
+                <IconButton
+                  label="Rotate left"
+                  shortcut="L"
+                  disabled={!info}
+                  onClick={() => imageRef.current?.rotate(-1)}
+                >
                   <RotateCcw size={16} />
                 </IconButton>
-                <IconButton label="Rotate right" shortcut="R" disabled={!info} onClick={() => imageRef.current?.rotate(1)}>
+                <IconButton
+                  label="Rotate right"
+                  shortcut="R"
+                  disabled={!info}
+                  onClick={() => imageRef.current?.rotate(1)}
+                >
                   <RotateCw size={16} />
                 </IconButton>
-                <IconButton label="Flip horizontal" shortcut="H" disabled={!info} onClick={() => imageRef.current?.flip("h")}>
+                <IconButton
+                  label="Flip horizontal"
+                  shortcut="H"
+                  disabled={!info}
+                  onClick={() => imageRef.current?.flip("h")}
+                >
                   <FlipHorizontal2 size={16} />
                 </IconButton>
-                <IconButton label="Flip vertical" shortcut="V" disabled={!info} onClick={() => imageRef.current?.flip("v")}>
+                <IconButton
+                  label="Flip vertical"
+                  shortcut="V"
+                  disabled={!info}
+                  onClick={() => imageRef.current?.flip("v")}
+                >
                   <FlipVertical2 size={16} />
                 </IconButton>
                 <div className="mx-1.5 h-5 w-px bg-line" />
               </>
             )}
-            <IconButton label={fav ? "Remove from favorites" : "Add to favorites"} shortcut="S" onClick={() => toggleFavorite(file.path)} className={fav ? "text-warn hover:text-warn" : undefined}>
+            <IconButton
+              label={fav ? "Remove from favorites" : "Add to favorites"}
+              shortcut="S"
+              onClick={() => toggleFavorite(file.path)}
+              className={fav ? "text-warn hover:text-warn" : undefined}
+            >
               <Star size={16} fill={fav ? "currentColor" : "none"} />
             </IconButton>
-            <IconButton label="Delete (move to Recycle Bin)" shortcut="Del" onClick={deleteCurrent}>
+            <IconButton
+              label="Delete (move to Recycle Bin)"
+              shortcut="Del"
+              onClick={deleteCurrent}
+            >
               <Trash2 size={16} />
             </IconButton>
-            <IconButton label="Information" shortcut="I" active={settings.showInfoPanel} onClick={() => updateSettings({ showInfoPanel: !settings.showInfoPanel })}>
+            <IconButton
+              label="Information"
+              shortcut="I"
+              active={settings.showInfoPanel}
+              onClick={() =>
+                updateSettings({ showInfoPanel: !settings.showInfoPanel })
+              }
+            >
               <Info size={17} />
             </IconButton>
-            <IconButton label={fullscreen ? "Exit full screen" : "Full screen"} shortcut="F" onClick={toggleFullscreen}>
+            <IconButton
+              label={fullscreen ? "Exit full screen" : "Full screen"}
+              shortcut="F"
+              onClick={toggleFullscreen}
+            >
               {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
             </IconButton>
             {!isVideo && (
@@ -300,13 +484,46 @@ export function Viewer() {
                   </IconButton>
                 )}
                 items={[
-                  { label: "Show in Explorer", icon: <FolderOpen size={14} />, onSelect: () => api.revealInExplorer(file.path) },
-                  { label: "Copy file path", onSelect: () => navigator.clipboard.writeText(file.path) },
-                  { label: "Background: Default", checked: settings.viewerBackground === "default", onSelect: () => updateSettings({ viewerBackground: "default" }), separatorBefore: true },
-                  { label: "Background: Black", checked: settings.viewerBackground === "black", onSelect: () => updateSettings({ viewerBackground: "black" }) },
-                  { label: "Background: Gray", checked: settings.viewerBackground === "gray", onSelect: () => updateSettings({ viewerBackground: "gray" }) },
-                  { label: "Background: White", checked: settings.viewerBackground === "white", onSelect: () => updateSettings({ viewerBackground: "white" }) },
-                  { label: "Background: Checkerboard", checked: settings.viewerBackground === "checker", onSelect: () => updateSettings({ viewerBackground: "checker" }) },
+                  {
+                    label: "Show in Explorer",
+                    icon: <FolderOpen size={14} />,
+                    onSelect: () => api.revealInExplorer(file.path),
+                  },
+                  {
+                    label: "Copy file path",
+                    onSelect: () => navigator.clipboard.writeText(file.path),
+                  },
+                  {
+                    label: "Background: Default",
+                    checked: settings.viewerBackground === "default",
+                    onSelect: () =>
+                      updateSettings({ viewerBackground: "default" }),
+                    separatorBefore: true,
+                  },
+                  {
+                    label: "Background: Black",
+                    checked: settings.viewerBackground === "black",
+                    onSelect: () =>
+                      updateSettings({ viewerBackground: "black" }),
+                  },
+                  {
+                    label: "Background: Gray",
+                    checked: settings.viewerBackground === "gray",
+                    onSelect: () =>
+                      updateSettings({ viewerBackground: "gray" }),
+                  },
+                  {
+                    label: "Background: White",
+                    checked: settings.viewerBackground === "white",
+                    onSelect: () =>
+                      updateSettings({ viewerBackground: "white" }),
+                  },
+                  {
+                    label: "Background: Checkerboard",
+                    checked: settings.viewerBackground === "checker",
+                    onSelect: () =>
+                      updateSettings({ viewerBackground: "checker" }),
+                  },
                 ]}
               />
             )}
@@ -314,7 +531,10 @@ export function Viewer() {
         </div>
 
         {/* Stage */}
-        <div className={cx("relative min-h-0 flex-1", !isVideo && bgClass)} style={!isVideo ? bgStyle : undefined}>
+        <div
+          className={cx("relative min-h-0 flex-1", !isVideo && bgClass)}
+          style={!isVideo ? bgStyle : undefined}
+        >
           {isVideo ? (
             <VideoView
               key="video"
@@ -359,7 +579,13 @@ export function Viewer() {
   );
 }
 
-function NavEdge({ side, onClick }: { side: "left" | "right"; onClick: () => void }) {
+function NavEdge({
+  side,
+  onClick,
+}: {
+  side: "left" | "right";
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -372,7 +598,11 @@ function NavEdge({ side, onClick }: { side: "left" | "right"; onClick: () => voi
       )}
     >
       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm">
-        {side === "left" ? <ChevronLeft size={22} /> : <ChevronRight size={22} />}
+        {side === "left" ? (
+          <ChevronLeft size={22} />
+        ) : (
+          <ChevronRight size={22} />
+        )}
       </span>
     </button>
   );
