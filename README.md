@@ -75,6 +75,22 @@ pwsh scripts/make-portable.ps1       # portable zip  → dist-release/
 `src-tauri/build.rs` copies the four runtime DLLs next to the executable for dev, tests and the
 installer.
 
+### Code signing (avoid SmartScreen / antivirus warnings)
+
+Release builds are currently **unsigned**, so Windows SmartScreen shows "Windows protected your
+PC" and some antivirus products treat the new, unknown executable with suspicion. To ship it:
+
+1. Get a code-signing certificate: **Azure Trusted Signing** (cheapest, immediate SmartScreen
+   reputation for verified organisations/individuals) or an OV/EV certificate from a CA
+   (DigiCert, Sectigo, SSL.com…).
+2. Configure Tauri to sign every binary it bundles — either a certificate in the Windows store:
+   `"bundle": { "windows": { "certificateThumbprint": "<SHA1>", "digestAlgorithm": "sha256",
+   "timestampUrl": "http://timestamp.digicert.com" } }`, or any tool via
+   `"signCommand": "trusted-signing-cli -e <endpoint> -a <account> -c <profile> %1"`.
+   Also sign the DLLs and `VUERIQ.exe` in the portable zip with `signtool sign /fd sha256 /tr <timestamp> /td sha256`.
+3. If an antivirus still flags a signed release, submit the files as a false positive
+   (Microsoft: <https://www.microsoft.com/wdsi/filesubmission>; other vendors have similar forms).
+
 ## Tests
 
 ```powershell
