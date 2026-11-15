@@ -87,3 +87,14 @@ requires to decode HEIC — so Windows could not decode these HEIC files nativel
 does. `heic_libheif_is_bundled_dll` additionally asserts that `heif.dll` and `libde265.dll` are
 loaded from VUERIQ's own directory. A Windows Sandbox run was not possible on this Windows Home
 machine; for a clean-OS check run the portable build in Windows Sandbox or a fresh VM.
+
+### Packaging (release build, 2026-11-15)
+
+| Check | Result |
+|---|---|
+| `pnpm tauri build` → `VUERIQ_1.0.0_x64-setup.exe` | ✔ 39.4 MB; contents verified with 7-Zip: `vueriq.exe`, `heif.dll`, `libde265.dll`, `dav1d.dll`, `libmpv-2.dll`, `plugins\heif-dav1d.dll`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md` |
+| `scripts/make-portable.ps1` → `VUERIQ_1.0.0_x64-portable.zip` | ✔ 53.8 MB |
+| Portable extracted to a fresh folder, launched with a 10-bit AVIF as argument ("Open with") | ✔ opens in the viewer within its folder (6 / 8), renders correctly |
+| Portable mode stores data beside the exe | ✔ `data\config`, `data\cache` created |
+| Second launch with a HEIC while running (double-click from Explorer) | ✔ single process; existing window switches to the HEIC |
+| Running the NSIS installer itself (install/uninstall, Explorer file associations) | ⏳ not yet executed on this machine — it changes system file associations, so it awaits the owner's go-ahead |

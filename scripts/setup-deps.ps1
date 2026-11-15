@@ -1,6 +1,6 @@
 # Prepares the native runtime dependencies VUERIQ bundles:
-#   * libheif + libde265 (HEVC) + dav1d (AV1) — built with vcpkg as DLLs (LGPL-friendly dynamic linking)
-#   * libmpv-2.dll                             — video engine (shinchiro mpv-winbuild-cmake)
+#   * libheif + libde265 (HEVC) + dav1d (AV1) - built with vcpkg as DLLs (LGPL-friendly dynamic linking)
+#   * libmpv-2.dll                             - video engine (shinchiro mpv-winbuild-cmake)
 # Requirements: Visual Studio 2022+/Build Tools with "Desktop development with C++", git.
 #   pwsh scripts/setup-deps.ps1
 $ErrorActionPreference = "Stop"
@@ -8,7 +8,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $vendor = Join-Path $root "vendor"
 New-Item -ItemType Directory -Force $vendor | Out-Null
 
-# ── vcpkg / libheif ──
+#  vcpkg / libheif 
 $vcpkg = Join-Path $vendor "vcpkg"
 if (-not (Test-Path (Join-Path $vcpkg "vcpkg.exe"))) {
   if (-not (Test-Path $vcpkg)) { git clone --depth 50 https://github.com/microsoft/vcpkg.git $vcpkg }
@@ -18,7 +18,7 @@ if (-not (Test-Path (Join-Path $vcpkg "vcpkg.exe"))) {
 & (Join-Path $vcpkg "vcpkg.exe") install "libheif[core,libde265,dav1d]:x64-windows" --clean-after-build
 if ($LASTEXITCODE -ne 0) { throw "vcpkg install failed" }
 
-# ── libmpv ──
+#  libmpv 
 $mpvDir = Join-Path $vendor "mpv"
 if (-not (Test-Path (Join-Path $mpvDir "libmpv-2.dll"))) {
   New-Item -ItemType Directory -Force $mpvDir | Out-Null

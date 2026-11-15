@@ -15,14 +15,16 @@ New-Item -ItemType Directory -Force $out | Out-Null
 Copy-Item (Join-Path $rel "vueriq.exe") (Join-Path $out "VUERIQ.exe")
 foreach ($dll in "heif.dll", "libde265.dll", "dav1d.dll", "libmpv-2.dll") {
   $src = Join-Path $root "src-tauri\lib\$dll"
-  if (-not (Test-Path $src)) { throw "Missing $dll — run scripts/setup-deps.ps1" }
+  if (-not (Test-Path $src)) { throw "Missing $dll - run scripts/setup-deps.ps1" }
   Copy-Item $src $out
 }
+New-Item -ItemType Directory -Force (Join-Path $out "plugins") | Out-Null
+Copy-Item (Join-Path $root "src-tauri\lib\plugins\heif-dav1d.dll") (Join-Path $out "plugins")
 Copy-Item (Join-Path $root "THIRD_PARTY_NOTICES.md"), (Join-Path $root "LICENSE.txt") $out
 # Marker: keep settings & caches in .\data next to the exe instead of %APPDATA%.
 Set-Content -Path (Join-Path $out "portable") -Value "VUERIQ portable mode: settings and caches are stored in the 'data' folder next to VUERIQ.exe." -Encoding utf8
 @"
-VUERIQ $version — Portable
+VUERIQ $version - Portable
 See Every Detail.
 
 Run VUERIQ.exe. No installation required.
