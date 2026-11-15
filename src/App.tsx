@@ -104,7 +104,7 @@ export default function App() {
   // Suppress the default WebView context menu everywhere except text fields.
   useEffect(() => {
     const onCtx = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest("input, textarea")) e.preventDefault();
+      if (!(e.target instanceof Element && e.target.closest("input, textarea"))) e.preventDefault();
     };
     window.addEventListener("contextmenu", onCtx);
     return () => window.removeEventListener("contextmenu", onCtx);

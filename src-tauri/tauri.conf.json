@@ -48,6 +48,7 @@
       "lib/heif.dll": "heif.dll",
       "lib/libde265.dll": "libde265.dll",
       "lib/dav1d.dll": "dav1d.dll",
+      "lib/plugins/heif-dav1d.dll": "plugins/heif-dav1d.dll",
       "lib/libmpv-2.dll": "libmpv-2.dll",
       "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
       "../LICENSE.txt": "LICENSE.txt"

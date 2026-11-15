@@ -317,7 +317,7 @@ export const VideoView = forwardRef<VideoViewHandle, Props>(function VideoView(
                 <span className="mr-2 hidden text-[11px] text-white/55 lg:inline">
                   {st.width}×{st.height}
                   {st.fps ? ` · ${st.fps.toFixed(st.fps % 1 ? 2 : 0)} fps` : ""}
-                  {st.videoCodec ? ` · ${st.videoCodec}` : ""}
+                  {st.videoCodec ? ` · ${shortCodec(st.videoCodec)}` : ""}
                 </span>
               )}
               <CtlButton
@@ -386,4 +386,9 @@ function CtlButton({
       {children}
     </IconButton>
   );
+}
+
+/** "H.265 / HEVC (High Efficiency Video Coding)" → "H.265" */
+export function shortCodec(c: string): string {
+  return c.split(" / ")[0].split(" (")[0].trim();
 }

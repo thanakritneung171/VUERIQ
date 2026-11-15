@@ -46,6 +46,18 @@ fn main() {
     }
     copy(&mpv);
 
+    // libheif codec plugins (AV1 via dav1d) live in a plugins/ subfolder.
+    let plugin = vcpkg_bin.parent().unwrap().join("plugins").join("libheif").join("heif-dav1d.dll");
+    if plugin.exists() {
+        println!("cargo:rerun-if-changed={}", plugin.display());
+        for d in [Some(lib_dir.join("plugins")), profile_dir.as_ref().map(|p| p.join("plugins"))].into_iter().flatten() {
+            let _ = std::fs::create_dir_all(&d);
+            let _ = std::fs::copy(&plugin, d.join("heif-dav1d.dll"));
+        }
+    } else {
+        println!("cargo:warning=missing libheif AV1 plugin {} — run scripts/setup-deps.ps1", plugin.display());
+    }
+
 
     tauri_build::build()
 }

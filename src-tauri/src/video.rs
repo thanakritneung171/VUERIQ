@@ -336,7 +336,6 @@ impl Player {
             ("config", "no".into()),
             ("terminal", "no".into()),
             ("msg-level", "all=warn".into()),
-            ("video-unscaled", "downscale-big".into()),
         ];
         let h = Arc::new(Handle::create(&opts)?);
         for (name, fmt) in [
@@ -760,14 +759,24 @@ pub fn probe_playback(path: &Path) -> AppResult<(String, i64, i64, f64, u64)> {
             _ => {}
         }
         if frames_seen && result.is_none() {
-            // Wait until some frames were actually decoded, then sample stats.
-            std::thread::sleep(Duration::from_millis(400));
+            // Require real, continuous decoding: play until ≥1 s of media time has elapsed.
+            let until = Instant::now() + Duration::from_secs(15);
+            while Instant::now() < until {
+                let pos: f64 = h.get_string("time-pos").and_then(|s| s.parse().ok()).unwrap_or(0.0);
+                if pos >= 1.0 {
+                    break;
+                }
+                unsafe { (a.wait_event)(h.0, 0.05) };
+            }
+            let pos: f64 = h.get_string("time-pos").and_then(|s| s.parse().ok()).unwrap_or(0.0);
+            if pos < 1.0 {
+                return Err(AppError::other(format!("playback stalled at {pos:.2}s")));
+            }
             let codec = h.get_string("video-codec").unwrap_or_default();
             let w = h.get_string("width").and_then(|s| s.parse().ok()).unwrap_or(0);
             let hh = h.get_string("height").and_then(|s| s.parse().ok()).unwrap_or(0);
             let dur = h.get_string("duration").and_then(|s| s.parse().ok()).unwrap_or(0.0);
-            let decoded = h.get_string("decoder-frame-drop-count").map(|_| 0).unwrap_or(0)
-                + h.get_string("estimated-frame-number").and_then(|s| s.parse().ok()).unwrap_or(0);
+            let decoded = h.get_string("estimated-frame-number").and_then(|s| s.parse().ok()).unwrap_or(0);
             result = Some((codec, w, hh, dur, decoded));
             break;
         }

@@ -5731,6 +5731,7 @@ dependencies = [
  "jxl-oxide",
  "kamadak-exif",
  "libheif-rs",
+ "libheif-sys",
  "libloading 0.8.9",
  "log",
  "parking_lot",

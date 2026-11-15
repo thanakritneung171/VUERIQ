@@ -9,3 +9,9 @@ test-media/generated/
 .DS_Store
 test-media/downloaded/
 src-tauri/lib/
+dist-release/
+dev.log
+build.log
+vite.log
+app.log
+vfix.rs

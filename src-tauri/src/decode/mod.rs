@@ -136,6 +136,10 @@ pub fn libheif_version() -> Option<String> {
     heif::version()
 }
 
+pub fn libheif_plugins() -> Vec<String> {
+    heif::loaded_plugins()
+}
+
 // ───────────── helpers shared by decoders ─────────────
 
 /// Apply an EXIF orientation (1..=8) to an RGBA buffer.

@@ -6,7 +6,8 @@ use super::{check_size, DecodeMeta, Decoded, Target};
 use crate::color;
 use crate::error::{AppError, AppResult, ErrorKind};
 use libheif_rs::{ColorSpace, DecodingOptions, HeifContext, HeifError, ImageHandle, ItemId, LibHeif, RgbChroma};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 fn map_err(e: HeifError) -> AppError {
     let msg = e.to_string();
@@ -24,9 +25,62 @@ fn map_err(e: HeifError) -> AppError {
     }
 }
 
+/// One libheif instance for the whole process. Dropping a LibHeif calls heif_deinit, which would
+/// unload plugins — so it is created once and never dropped.
+struct Lib(LibHeif);
+unsafe impl Send for Lib {}
+unsafe impl Sync for Lib {}
+static LIB: OnceLock<Lib> = OnceLock::new();
+static PLUGINS: OnceLock<Vec<String>> = OnceLock::new();
+
+/// Directories searched for libheif codec plugins (heif-dav1d.dll = AV1/AVIF decoding).
+fn plugin_dirs() -> Vec<PathBuf> {
+    let mut v = vec![];
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(d) = exe.parent() {
+            v.push(d.join("plugins"));
+        }
+    }
+    // Development / test builds: plugins staged by build.rs next to the manifest.
+    v.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("lib").join("plugins"));
+    v
+}
+
+fn lib() -> &'static LibHeif {
+    &LIB.get_or_init(|| {
+        let lib = LibHeif::new();
+        let mut loaded = vec![];
+        for dir in plugin_dirs() {
+            let file = dir.join("heif-dav1d.dll");
+            if !file.exists() {
+                continue;
+            }
+            // Load the plugin file explicitly (heif_load_plugin) — keeps the loaded handle alive.
+            let Ok(c) = std::ffi::CString::new(file.to_string_lossy().as_bytes()) else { continue };
+            let mut handle = std::ptr::null();
+            let err = unsafe { libheif_sys::heif_load_plugin(c.as_ptr(), &mut handle) };
+            if err.code == 0 {
+                loaded.push(file.display().to_string());
+                break;
+            } else {
+                let msg = unsafe { std::ffi::CStr::from_ptr(err.message) }.to_string_lossy().into_owned();
+                log::warn!("libheif plugin {} failed: {msg}", file.display());
+            }
+        }
+        let _ = PLUGINS.set(loaded);
+        Lib(lib)
+    })
+    .0
+}
+
+/// Human-readable list of loaded libheif plugins (diagnostics / tests).
+pub fn loaded_plugins() -> Vec<String> {
+    lib();
+    PLUGINS.get().cloned().unwrap_or_default()
+}
+
 pub fn version() -> Option<String> {
-    let lib = LibHeif::new_checked().ok()?;
-    let v = lib.version();
+    let v = lib().version();
     Some(format!("{}.{}.{}", v[0], v[1], v[2]))
 }
 
@@ -34,8 +88,10 @@ pub fn decode(path: &Path, target: Target) -> AppResult<Decoded> {
     let path_str = path.to_str().ok_or_else(|| AppError::other("Path is not valid Unicode"))?;
     // Read through Rust so Windows long/Unicode paths and sharing modes behave like every other format.
     let bytes = std::fs::read(path)?;
-    let lib = LibHeif::new_checked().map_err(map_err)?;
-    let ctx = HeifContext::read_from_bytes(&bytes).map_err(map_err)?;
+    let lib = lib();
+    let mut ctx = HeifContext::read_from_bytes(&bytes).map_err(map_err)?;
+    let threads = std::thread::available_parallelism().map(|n| n.get() as u32).unwrap_or(4).clamp(2, 16);
+    ctx.set_max_decoding_threads(threads);
     let _ = path_str;
     let primary = ctx.primary_image_handle().map_err(map_err)?;
 
@@ -72,6 +128,7 @@ pub fn decode(path: &Path, target: Target) -> AppResult<Decoded> {
     let mut opts = DecodingOptions::new();
     if let Some(o) = opts.as_mut() {
         o.set_convert_hdr_to_8bit(true);
+        o.set_num_library_threads(threads);
     }
     let img = lib.decode(handle, ColorSpace::Rgb(RgbChroma::Rgba), opts).map_err(map_err)?;
     let planes = img.planes();

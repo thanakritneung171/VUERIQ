@@ -70,11 +70,32 @@ fn heic_thumbnails_use_embedded_or_scaled_image() {
 
 #[test]
 fn heic_libheif_is_bundled_dll() {
-    // The HEIF engine must come from the DLL shipped next to the executable, never from Windows.
+    // decode something first so libde265 is loaded
+    decode::decode(&media("downloaded/heic/nokia-C014.heic"), Target::Full).unwrap();
+    // The HEIF engine must come from VUERIQ's own DLLs, never from a Windows codec extension.
     let v = decode::libheif_version().expect("libheif must load");
     assert!(v.starts_with("1."), "libheif version {v}");
-    let exe_dir = std::env::current_exe().unwrap().parent().unwrap().parent().unwrap().to_path_buf();
-    assert!(exe_dir.join("heif.dll").exists() || exe_dir.join("deps").join("heif.dll").exists(), "heif.dll not beside test binary");
+    let plugins = decode::libheif_plugins();
+    assert!(!plugins.is_empty(), "AV1 plugin (heif-dav1d.dll) was not loaded");
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStringExt;
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn GetModuleHandleW(name: *const u16) -> isize;
+            fn GetModuleFileNameW(m: isize, buf: *mut u16, len: u32) -> u32;
+        }
+        for dll in ["heif.dll", "libde265.dll"] {
+            let w: Vec<u16> = dll.encode_utf16().chain([0]).collect();
+            let h = unsafe { GetModuleHandleW(w.as_ptr()) };
+            assert!(h != 0, "{dll} is not loaded");
+            let mut buf = [0u16; 1024];
+            let n = unsafe { GetModuleFileNameW(h, buf.as_mut_ptr(), 1024) };
+            let path = std::ffi::OsString::from_wide(&buf[..n as usize]).to_string_lossy().to_lowercase();
+            println!("{dll} loaded from {path}");
+            assert!(!path.contains("windowsapps") && !path.contains("system32"), "{dll} must be VUERIQ's bundled copy, got {path}");
+        }
+    }
 }
 
 // ───────────── AVIF (libheif + dav1d) ─────────────

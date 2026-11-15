@@ -141,23 +141,24 @@ fn video_thumbnails() {
 
 #[test]
 fn video_playback_all_containers_and_codecs() {
+    // (file, substring of libavcodec's descriptive codec name)
     let expect = [
-        ("h264.mp4", "h264"),
-        ("hevc.mp4", "hevc"),
-        ("h264.mov", "h264"),
-        ("hevc.mkv", "hevc"),
-        ("vp9.webm", "vp9"),
-        ("vp8.webm", "vp8"),
-        ("av1.mkv", "av1"),
-        ("av1-svt.mp4", "av1"),
-        ("mpeg4.avi", "mpeg4"),
-        ("wmv2.wmv", "wmv2"),
-        ("mpeg2.mpg", "mpeg2video"),
-        ("mpeg2.mpeg", "mpeg2video"),
-        ("h264.m4v", "h264"),
-        ("h264.3gp", "h264"),
-        ("h264.ts", "h264"),
-        ("h264.mts", "h264"),
+        ("h264.mp4", "H.264"),
+        ("hevc.mp4", "HEVC"),
+        ("h264.mov", "H.264"),
+        ("hevc.mkv", "HEVC"),
+        ("vp9.webm", "VP9"),
+        ("vp8.webm", "VP8"),
+        ("av1.mkv", "AV1"),
+        ("av1-svt.mp4", "AV1"),
+        ("mpeg4.avi", "MPEG-4 part 2"),
+        ("wmv2.wmv", "Windows Media Video 8"),
+        ("mpeg2.mpg", "MPEG-2"),
+        ("mpeg2.mpeg", "MPEG-2"),
+        ("h264.m4v", "H.264"),
+        ("h264.3gp", "H.264"),
+        ("h264.ts", "H.264"),
+        ("h264.mts", "H.264"),
     ];
     let mut failures = vec![];
     for (name, codec) in expect {
@@ -167,9 +168,8 @@ fn video_playback_all_containers_and_codecs() {
                 if (w, h) != (640, 360) {
                     failures.push(format!("{name}: size {w}x{h}"));
                 }
-                if !c.to_lowercase().replace('-', "").contains(&codec.replace('-', "")) && !c.to_lowercase().contains(codec) {
-                    // codec names differ between descriptive and short forms; log for review
-                    println!("   note: codec string '{c}' (expected family {codec})");
+                if !c.contains(codec) {
+                    failures.push(format!("{name}: codec '{c}', expected {codec}"));
                 }
                 if (dur - 3.0).abs() > 0.5 {
                     failures.push(format!("{name}: duration {dur}"));

@@ -298,3 +298,6 @@ export function isFavorite(favorites: string[], path: string): boolean {
   const l = path.toLowerCase();
   return favorites.some((p) => p.toLowerCase() === l);
 }
+
+// Dev-only handle for automated UI checks over DevTools.
+if (import.meta.env.DEV) (window as unknown as { __vq: typeof useApp }).__vq = useApp;

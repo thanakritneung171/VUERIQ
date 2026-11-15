@@ -32,7 +32,8 @@ log = "0.4"
 # ── image decoding ──
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp", "ico", "tiff", "tga", "qoi", "pnm", "hdr", "exr", "rayon"] }
 jpeg-decoder = { version = "0.3", default-features = false }
-libheif-rs = { version = "3", default-features = false, features = ["v1_20"] }
+libheif-rs = { version = "3", default-features = false, features = ["v1_23"] }
+libheif-sys = { version = "5", default-features = false, features = ["v1_23"] }
 rawler = "0.8"
 jxl-oxide = "0.12"
 resvg = "0.45"

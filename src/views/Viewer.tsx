@@ -134,7 +134,7 @@ export function Viewer() {
   // Keyboard shortcuts (mapping lives in lib/shortcuts.ts)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest("input, textarea, select, [role=menu]")) return;
+      if (e.target instanceof Element && e.target.closest("input, textarea, select, [role=menu]")) return;
       const a = resolveShortcut(e, { isVideo, fullscreen: useApp.getState().fullscreen });
       if (!a) return;
       const v = videoRef.current;
