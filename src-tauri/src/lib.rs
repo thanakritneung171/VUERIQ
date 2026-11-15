@@ -366,21 +366,28 @@ fn video_set_margins(app: tauri::AppHandle, left: f64, top: f64, right: f64, bot
 
 // ───────────────────────── app ─────────────────────────
 
+fn single_instance<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri_plugin_single_instance::init(|app, argv, cwd| {
+        // Double-clicking another file while VUERIQ runs → open it in the existing window.
+        let files = args_to_paths(argv.into_iter().skip(1), Some(Path::new(&cwd)));
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.unminimize();
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+        if !files.is_empty() {
+            let _ = app.emit("open-files", files);
+        }
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            // Double-clicking another file while VUERIQ runs → open it in the existing window.
-            let files = args_to_paths(argv.into_iter().skip(1), Some(Path::new(&cwd)));
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.unminimize();
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
-            if !files.is_empty() {
-                let _ = app.emit("open-files", files);
-            }
-        }))
+    let builder = tauri::Builder::default();
+    // Debug builds can opt out so a dev copy runs beside the installed app.
+    let single = !(cfg!(debug_assertions) && std::env::var_os("VUERIQ_MULTI_INSTANCE").is_some());
+    let builder = if single { builder.plugin(single_instance()) } else { builder };
+    builder
         .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol("vq", |ctx, request, responder| {
             protocol::handle(ctx.app_handle().clone(), request, responder);

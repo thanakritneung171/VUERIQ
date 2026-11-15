@@ -78,8 +78,10 @@ it to the Recycle Bin; Ctrl+Z, Backspace or the Undo button brings back the prev
 **Find Duplicates** (sidebar → Tools): pick a folder (optionally with subfolders) and choose how
 strict the similar-photo match is. Results are grouped as *Identical* (same bytes) or *Similar*
 (same picture). One file per group is pre-selected to keep — the highest resolution / largest
-file, or switch *Auto-select* to keep the oldest or newest. Click a tile to change the choice,
-double-click to view it full size. Deleting every copy of a group asks first.
+file, or switch *Auto-select* to keep the oldest or newest. Click a tile to change the choice;
+*Select all* / *Unselect all* work for the whole result or per group. Double-click a tile (or its
+eye button) to preview it in place: ← / → step through the group, Space toggles keep / remove,
+Enter opens the full viewer, Esc returns to the same spot. Deleting every copy of a group asks first.
 
 ## Build from source
 

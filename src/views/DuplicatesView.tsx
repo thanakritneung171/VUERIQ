@@ -1,14 +1,32 @@
 import { listen } from "@tauri-apps/api/event";
-import { Check, CopyCheck, FolderInput, FolderOpen, ListChecks, Play, RefreshCw, ScanSearch, Trash2, X } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import {
+  Check,
+  CheckCheck,
+  ChevronLeft,
+  ChevronRight,
+  CopyCheck,
+  Eye,
+  FolderInput,
+  FolderOpen,
+  ListChecks,
+  Maximize2,
+  Play,
+  RefreshCw,
+  ScanSearch,
+  Square,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ImageView } from "../components/ImageView";
 import { create } from "zustand";
 import { Thumb } from "../components/Thumb";
-import { Button, Menu, Segmented, Toggle, cx } from "../components/ui";
-import { api, isTauri } from "../lib/api";
+import { Button, IconButton, Menu, Segmented, Toggle, cx } from "../components/ui";
+import { api, isTauri, thumbUrl } from "../lib/api";
 import { pickFolder } from "../lib/dialogs";
 import { type KeepRule, autoSelect, fullySelected, selectedBytes, visibleGroups } from "../lib/duplicates";
 import { basename, formatBytes, formatDate } from "../lib/formats";
-import type { ApiError, DupFile, DupGroup, DupProgress, DupReport } from "../lib/types";
+import type { ApiError, DupFile, DupGroup, DupProgress, DupReport, ImageInfo } from "../lib/types";
 import { plural, useApp } from "../store/app";
 
 type Sensitivity = "strict" | "normal" | "loose";
@@ -29,6 +47,8 @@ interface DupStore {
   similar: boolean;
   sensitivity: Sensitivity;
   rule: KeepRule;
+  /** Results scroll position, restored when coming back from the full viewer. */
+  scrollTop: number;
   set: (p: Partial<DupStore>) => void;
 }
 
@@ -43,12 +63,13 @@ const useDups = create<DupStore>((set) => ({
   similar: true,
   sensitivity: "normal",
   rule: "largest",
+  scrollTop: 0,
   set: (p) => set(p),
 }));
 
 async function runScan(folder: string) {
   const s = useDups.getState();
-  s.set({ scanning: true, progress: { phase: "listing", done: 0, total: 0 }, report: null, sel: new Set(), gone: new Set() });
+  s.set({ scanning: true, progress: { phase: "listing", done: 0, total: 0 }, report: null, sel: new Set(), gone: new Set(), scrollTop: 0 });
   let un: (() => void) | undefined;
   if (isTauri) un = await listen<DupProgress>("dup-progress", (e) => useDups.setState({ progress: e.payload }));
   try {
@@ -206,6 +227,24 @@ function Results({ report }: { report: DupReport }) {
       else n.add(p);
       return { sel: n };
     });
+  const setMany = (paths: string[], on: boolean) =>
+    useDups.setState((s) => {
+      const n = new Set(s.sel);
+      for (const p of paths) {
+        if (on) n.add(p);
+        else n.delete(p);
+      }
+      return { sel: n };
+    });
+  const allPaths = useMemo(() => groups.flatMap((g) => g.files.map((f) => f.path)), [groups]);
+
+  const [preview, setPreview] = useState<{ files: DupFile[]; index: number } | null>(null);
+
+  // Keep the scroll position across a trip to the full viewer (this view unmounts meanwhile).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = useDups.getState().scrollTop;
+  }, [groups.length > 0]);
 
   const del = async () => {
     if (!selected.length) return;
@@ -229,7 +268,7 @@ function Results({ report }: { report: DupReport }) {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-bg">
+    <div className="relative flex min-h-0 flex-1 flex-col bg-bg">
       <div className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-4">
         <CopyCheck size={16} className="text-fg-subtle" />
         <div className="min-w-0">
@@ -277,9 +316,20 @@ function Results({ report }: { report: DupReport }) {
                     checked: rule === r,
                     onSelect: () => set({ rule: r, sel: autoSelect(groups, r) }),
                   })),
-                  { label: "Select nothing", onSelect: () => set({ sel: new Set() }), separatorBefore: true },
                 ]}
               />
+              <Button variant="ghost" className="h-8 px-2.5 text-[12.5px]" icon={<CheckCheck size={15} />} onClick={() => set({ sel: new Set(allPaths) })}>
+                Select all
+              </Button>
+              <Button
+                variant="ghost"
+                className="h-8 px-2.5 text-[12.5px]"
+                icon={<Square size={14} />}
+                disabled={!selected.length}
+                onClick={() => set({ sel: new Set() })}
+              >
+                Unselect all
+              </Button>
               <Button variant="secondary" className="h-8" icon={<FolderInput size={15} />} disabled={!selected.length} onClick={move}>
                 Move…
               </Button>
@@ -289,7 +339,11 @@ function Results({ report }: { report: DupReport }) {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+          <div
+            ref={scrollRef}
+            onScroll={(e) => useDups.setState({ scrollTop: e.currentTarget.scrollTop })}
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4"
+          >
             {groups.map((g) => (
               <GroupCard
                 key={g.files.map((f) => f.path).join("|")}
@@ -297,11 +351,25 @@ function Results({ report }: { report: DupReport }) {
                 root={report.root}
                 sel={sel}
                 onToggle={toggle}
-                onOpen={(i) => openViewer(g.files, i)}
+                onSetAll={(on) => setMany(g.files.map((f) => f.path), on)}
+                onOpen={(i) => setPreview({ files: g.files, index: i })}
               />
             ))}
           </div>
         </>
+      )}
+
+      {preview && (
+        <Preview
+          files={preview.files}
+          index={preview.index}
+          sel={sel}
+          root={report.root}
+          onIndex={(i) => setPreview({ ...preview, index: i })}
+          onToggle={toggle}
+          onClose={() => setPreview(null)}
+          onOpenViewer={() => openViewer(preview.files, preview.index)}
+        />
       )}
     </div>
   );
@@ -319,15 +387,18 @@ function GroupCard({
   root,
   sel,
   onToggle,
+  onSetAll,
   onOpen,
 }: {
   group: DupGroup;
   root: string;
   sel: Set<string>;
   onToggle: (p: string) => void;
+  onSetAll: (on: boolean) => void;
   onOpen: (i: number) => void;
 }) {
   const allSelected = group.files.every((f) => sel.has(f.path));
+  const noneSelected = !group.files.some((f) => sel.has(f.path));
   return (
     <div className="rounded-xl border border-line bg-panel p-3" style={{ contentVisibility: "auto", containIntrinsicSize: "auto 270px" }}>
       <div className="mb-2.5 flex items-center gap-2 px-1 text-[12px]">
@@ -342,7 +413,25 @@ function GroupCard({
         </span>
         <span className="text-fg-muted">{plural(group.files.length, "file")}</span>
         <span className="text-fg-subtle">· {formatBytes(group.reclaimable)} reclaimable</span>
-        {allSelected && <span className="ml-auto text-danger">All copies selected</span>}
+        <span className="ml-auto flex items-center gap-2">
+          {allSelected && <span className="text-danger">All copies selected</span>}
+          <button
+            type="button"
+            disabled={allSelected}
+            onClick={() => onSetAll(true)}
+            className="rounded px-1.5 py-0.5 text-fg-muted hover:bg-fg/8 hover:text-fg disabled:pointer-events-none disabled:opacity-35"
+          >
+            Select all
+          </button>
+          <button
+            type="button"
+            disabled={noneSelected}
+            onClick={() => onSetAll(false)}
+            className="rounded px-1.5 py-0.5 text-fg-muted hover:bg-fg/8 hover:text-fg disabled:pointer-events-none disabled:opacity-35"
+          >
+            Unselect all
+          </button>
+        </span>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-1">
         {group.files.map((f, i) => (
@@ -369,9 +458,9 @@ function Tile({ file, folder, selected, onToggle, onOpen }: { file: DupFile; fol
             onToggle();
           } else if (e.key === "Enter") onOpen();
         }}
-        title="Click to select · double-click to view"
+        title="Click to select · double-click to preview"
         className={cx(
-          "relative h-[168px] cursor-pointer overflow-hidden rounded-lg border bg-bg transition-[border-color,opacity] duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+          "group/tile relative h-[168px] cursor-pointer overflow-hidden rounded-lg border bg-bg transition-[border-color,opacity] duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
           selected ? "border-danger/70" : "border-line hover:border-line-strong",
         )}
       >
@@ -384,6 +473,20 @@ function Tile({ file, folder, selected, onToggle, onOpen }: { file: DupFile; fol
         >
           {selected && <Trash2 size={11} strokeWidth={2.5} />}
         </span>
+        <button
+          type="button"
+          aria-label={`Preview ${file.name}`}
+          title="Preview"
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+          className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white opacity-0 shadow backdrop-blur-sm transition-opacity group-hover/tile:opacity-100 hover:bg-black/75"
+        >
+          <Eye size={13} />
+        </button>
         {!selected && (
           <span className="absolute right-1.5 bottom-1.5 rounded bg-ok/90 px-1.5 py-0.5 text-[10px] font-semibold text-black">KEEP</span>
         )}
@@ -402,5 +505,212 @@ function Tile({ file, folder, selected, onToggle, onOpen }: { file: DupFile; fol
         </div>
       )}
     </div>
+  );
+}
+
+/** In-place preview over the results, so closing it returns exactly where you were. */
+function Preview({
+  files,
+  index,
+  sel,
+  root,
+  onIndex,
+  onToggle,
+  onClose,
+  onOpenViewer,
+}: {
+  files: DupFile[];
+  index: number;
+  sel: Set<string>;
+  root: string;
+  onIndex: (i: number) => void;
+  onToggle: (p: string) => void;
+  onClose: () => void;
+  onOpenViewer: () => void;
+}) {
+  const file = files[index];
+  const selected = sel.has(file.path);
+  const settings = useApp((s) => s.settings);
+  const [info, setInfo] = useState<ImageInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+  const [retry, setRetry] = useState(0);
+  const prevId = useRef<number | null>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (file.kind !== "image") {
+      setInfo(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    setError(null);
+    api
+      .openImage(file.path)
+      .then((i) => {
+        if (!alive) {
+          api.releaseImage(i.id).catch(() => {});
+          return;
+        }
+        setInfo(i);
+        setLoading(false);
+        if (prevId.current !== null && prevId.current !== i.id) api.releaseImage(prevId.current).catch(() => {});
+        prevId.current = i.id;
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setInfo(null);
+        setError(e as ApiError);
+        setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [file.path, file.kind, retry]);
+
+  useEffect(
+    () => () => {
+      if (prevId.current !== null) api.releaseImage(prevId.current).catch(() => {});
+    },
+    [],
+  );
+
+  useEffect(() => {
+    stripRef.current?.querySelector(`[data-i="${index}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [index]);
+
+  const step = (d: number) => onIndex((index + d + files.length) % files.length);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (useApp.getState().confirm || e.ctrlKey || e.metaKey || e.altKey) return;
+      let handled = true;
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") step(-1);
+      else if (e.key === "ArrowRight") step(1);
+      else if (e.key === " " || e.key === "Delete") onToggle(file.path);
+      else if (e.key === "Enter") onOpenViewer();
+      else handled = false;
+      if (handled) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  });
+
+  const folder = relFolder(root, file.path);
+  return (
+    <div role="dialog" aria-label={`Preview ${file.name}`} className="animate-fade-in absolute inset-0 z-30 flex flex-col bg-bg">
+      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-3">
+        <IconButton label="Back to results" shortcut="Esc" onClick={onClose}>
+          <ChevronLeft size={18} />
+        </IconButton>
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-semibold" title={file.path}>
+            {file.name}
+          </div>
+          <div className="truncate text-[11.5px] text-fg-subtle tabular-nums">
+            {index + 1} / {files.length} · {file.width && file.height ? `${file.width}×${file.height} · ` : ""}
+            {formatBytes(file.size)} · {formatDate(file.modified)}
+            {folder ? ` · in ${folder}` : ""}
+          </div>
+        </div>
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button
+            variant={selected ? "danger" : "secondary"}
+            className="h-8"
+            icon={selected ? <Trash2 size={14} /> : <Check size={14} />}
+            title="Toggle keep / remove  (Space)"
+            onClick={() => onToggle(file.path)}
+          >
+            {selected ? "Will be removed" : "Keep"}
+          </Button>
+          <IconButton label="Open in full viewer" shortcut="Enter" onClick={onOpenViewer}>
+            <Maximize2 size={16} />
+          </IconButton>
+          <IconButton label="Close preview" shortcut="Esc" onClick={onClose}>
+            <X size={17} />
+          </IconButton>
+        </div>
+      </div>
+
+      <div className="relative min-h-0 flex-1">
+        {file.kind === "image" ? (
+          <ImageView
+            info={info}
+            loading={loading}
+            error={error}
+            pixelated={settings.pixelatedZoom}
+            enlargeSmall={settings.enlargeSmallImages}
+            smooth={settings.smoothTransitions}
+            onScaleChange={() => {}}
+            onRetry={() => setRetry((r) => r + 1)}
+            onRevealInExplorer={() => api.revealInExplorer(file.path)}
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-4 p-6">
+            <img src={thumbUrl(file.path, 1024, file.modified)} alt="" draggable={false} className="max-h-[80%] max-w-full rounded-lg object-contain" />
+            <Button variant="secondary" icon={<Play size={14} />} onClick={onOpenViewer}>
+              Play in viewer
+            </Button>
+          </div>
+        )}
+        {files.length > 1 && (
+          <>
+            <PreviewEdge side="left" onClick={() => step(-1)} />
+            <PreviewEdge side="right" onClick={() => step(1)} />
+          </>
+        )}
+      </div>
+
+      {files.length > 1 && (
+        <div ref={stripRef} className="flex shrink-0 gap-2 overflow-x-auto border-t border-line px-3 py-2">
+          {files.map((f, i) => (
+            <button
+              key={f.path}
+              type="button"
+              data-i={i}
+              title={f.name}
+              onClick={() => onIndex(i)}
+              className={cx(
+                "relative h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 bg-panel",
+                i === index ? "border-accent" : sel.has(f.path) ? "border-danger/60" : "border-transparent hover:border-line-strong",
+              )}
+            >
+              <Thumb file={f} size={64} className={cx("h-full w-full", sel.has(f.path) && "opacity-50")} />
+              {sel.has(f.path) && (
+                <span className="absolute top-0.5 left-0.5 flex h-4 w-4 items-center justify-center rounded bg-danger text-white">
+                  <Trash2 size={9} strokeWidth={2.5} />
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PreviewEdge({ side, onClick }: { side: "left" | "right"; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={side === "left" ? "Previous" : "Next"}
+      onClick={onClick}
+      onDoubleClick={(e) => e.stopPropagation()}
+      className={cx(
+        "absolute top-1/2 z-10 flex h-24 w-12 -translate-y-1/2 items-center justify-center opacity-40 transition-opacity duration-200 hover:opacity-100",
+        side === "left" ? "left-0" : "right-0",
+      )}
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm">
+        {side === "left" ? <ChevronLeft size={22} /> : <ChevronRight size={22} />}
+      </span>
+    </button>
   );
 }
