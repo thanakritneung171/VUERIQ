@@ -192,3 +192,36 @@ export interface OpResult {
   needsPermanent: boolean;
   error: string | null;
 }
+
+/** Duplicate finder (src-tauri/src/duplicates.rs). */
+export interface DupFile {
+  path: string;
+  name: string;
+  ext: string;
+  kind: MediaKind;
+  size: number;
+  modified: number;
+  width: number | null;
+  height: number | null;
+}
+
+export interface DupGroup {
+  kind: "exact" | "similar";
+  files: DupFile[];
+  reclaimable: number;
+}
+
+export interface DupReport {
+  root: string;
+  scanned: number;
+  unreadable: number;
+  groups: DupGroup[];
+  cancelled: boolean;
+  elapsedMs: number;
+}
+
+export interface DupProgress {
+  phase: "listing" | "comparing" | "analyzing";
+  done: number;
+  total: number;
+}

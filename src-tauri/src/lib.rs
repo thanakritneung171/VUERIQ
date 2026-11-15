@@ -3,6 +3,7 @@
 pub mod assoc;
 pub mod color;
 pub mod decode;
+pub mod duplicates;
 pub mod error;
 pub mod exif_util;
 pub mod fileops;
@@ -98,6 +99,34 @@ fn paths_exist(paths: Vec<String>) -> Vec<bool> {
 
 fn to_paths(paths: &[String]) -> Vec<PathBuf> {
     paths.iter().map(PathBuf::from).collect()
+}
+
+/// Scan a folder for duplicate media. Emits `dup-progress` events while running.
+#[tauri::command]
+async fn find_duplicates(app: tauri::AppHandle, folder: String, recursive: bool, similar: bool, threshold: u32) -> AppResult<duplicates::DupReport> {
+    let root = PathBuf::from(&folder);
+    if !root.is_dir() {
+        return Err(AppError::other("This location is not a folder."));
+    }
+    blocking(move || {
+        let last = Mutex::new(std::time::Instant::now() - std::time::Duration::from_secs(1));
+        let progress = |p: duplicates::Progress| {
+            // Throttle to ~12 events/s, but always send the final one of a phase.
+            let mut l = last.lock();
+            if p.done == p.total || l.elapsed().as_millis() >= 80 {
+                *l = std::time::Instant::now();
+                let _ = app.emit("dup-progress", p);
+            }
+        };
+        let opts = duplicates::ScanOptions { recursive, similar, threshold: threshold.min(20) };
+        Ok(duplicates::scan(&root, opts, &progress))
+    })
+    .await
+}
+
+#[tauri::command]
+fn cancel_duplicates() {
+    duplicates::cancel();
 }
 
 #[tauri::command]
@@ -399,6 +428,8 @@ pub fn run() {
             resolve_open_target,
             paths_exist,
             has_recycle_bin,
+            find_duplicates,
+            cancel_duplicates,
             delete_files,
             restore_files,
             move_files,

@@ -25,6 +25,8 @@ ship inside the app.
   *Delete* (to the Recycle Bin) — every delete and move can be undone (Ctrl+Z)
 - **Swipe Sort**: go through a folder one photo at a time — swipe right to keep, left to delete,
   with Undo
+- **Find Duplicates**: byte-identical copies of any photo or video, plus similar-looking photos
+  (re-saved, resized, HEIC ↔ JPG); auto-select keeps the best copy, delete or move the rest
 - **Windows integration**: installer with file associations, portable build, "Open with",
   single instance
 
@@ -34,8 +36,8 @@ See [docs/SUPPORTED_FORMATS.md](docs/SUPPORTED_FORMATS.md) for the verified form
 
 | Package | Use |
 |---|---|
-| `VUERIQ_1.0.0_x64-setup.exe` | Installer. Per-user (no admin) or all users. Registers file types, Start menu, uninstaller. |
-| `VUERIQ_1.0.0_x64-portable.zip` | Unzip anywhere and run `VUERIQ.exe`. Settings stay in `data\` beside the exe. Use *Settings → Windows Integration → Register* to add "Open with". |
+| `VUERIQ_1.1.0_x64-setup.exe` | Installer. Per-user (no admin) or all users. Registers file types, Start menu, uninstaller. |
+| `VUERIQ_1.1.0_x64-portable.zip` | Unzip anywhere and run `VUERIQ.exe`. Settings stay in `data\` beside the exe. Use *Settings → Windows Integration → Register* to add "Open with". |
 
 Requirements: Windows 10 1809+ or Windows 11, x64, WebView2 Runtime (pre-installed on Windows 11;
 the installer fetches it on Windows 10 if missing). The portable build needs WebView2 to be
@@ -72,6 +74,12 @@ Recycle Bin (USB sticks, network shares) are only deleted after an explicit conf
 
 **Swipe Sort** (sidebar → Tools): drag the photo right (or →) to keep it, left (or ←, Del) to send
 it to the Recycle Bin; Ctrl+Z, Backspace or the Undo button brings back the previous photo.
+
+**Find Duplicates** (sidebar → Tools): pick a folder (optionally with subfolders) and choose how
+strict the similar-photo match is. Results are grouped as *Identical* (same bytes) or *Similar*
+(same picture). One file per group is pre-selected to keep — the highest resolution / largest
+file, or switch *Auto-select* to keep the oldest or newest. Click a tile to change the choice,
+double-click to view it full size. Deleting every copy of a group asks first.
 
 ## Build from source
 

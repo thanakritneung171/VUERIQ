@@ -8,6 +8,7 @@
 | Rust unit | `src-tauri/src/**` `#[cfg(test)]` | `cargo test --lib` | Extension classification, sRGB transfer, P3→sRGB, pyramid construction |
 | Formats | `src-tauri/tests/media_formats.rs` | `cargo test --test media_formats` | HEIC, HEIF, AVIF, JXL, JPEG/PNG/WebP/GIF/BMP/ICO/TIFF/TGA/QOI, SVG, RAW, EXIF orientation, ICC, alpha, sharp detail, corrupt files, bundled-DLL check |
 | File operations | `src-tauri/tests/fileops.rs` | `cargo test --test fileops` | Delete to the real Recycle Bin and restore, missing files, network paths need confirmation, move with name-clash renaming and move back, cross-drive move (C: → D:) keeps size and modified time |
+| Duplicates | `src-tauri/tests/duplicates.rs` | `cargo test --test duplicates` | Real photos: exact copies incl. sub-folder, HEIC vs its JPEG conversion, PNG/AVIF/half-size JPEG of one photo, duplicate videos; unrelated photos, a RAW, flat colours and a different video are not matched; non-recursive / exact-only mode; dHash distance (fox PNG↔AVIF 2 bits, fox↔pigeon 24 bits); cancellation |
 | Engine | `src-tauri/tests/engine.rs` | `cargo test --test engine` | 96 MP image + tiles, panorama, memory budget/eviction, cache reuse, thumbnail cache, thumbnails for every family, video thumbnails, video playback of 16 container/codec combinations, file association registration (sandboxed registry key) |
 | Manual / in-app | DevTools-driven checks (below) | — | Rendering, video overlay, UI responsiveness |
 
@@ -50,8 +51,8 @@ release. (`cargo test --release` also works but re-runs LTO per test binary.)
 
 ## Latest results — 2026-11-15, Windows 11 Home 26300, i7-8750H, 32 GB
 
-* **Vitest**: 4 files, **82 / 82 passed**.
-* **Rust**: unit 5/5, `media_formats` **16/16**, `engine` **9/9**, `fileops` **5/5** — **35 / 35 passed**.
+* **Vitest**: 5 files, **87 / 87 passed**.
+* **Rust**: unit 5/5, `media_formats` **16/16**, `engine` **9/9**, `fileops` **5/5**, `duplicates` **4/4** — **39 / 39 passed**.
 
 Selected measurements from the run:
 
@@ -99,6 +100,15 @@ Driven with real mouse/keyboard events over the DevTools protocol; results check
 | Swipe Sort: Ctrl+Z / Backspace / Undo button | ✔ previous card returns; a deleted file is restored from the Recycle Bin |
 | Swipe Sort: ← / → keys, leaving the section and coming back, finishing the folder | ✔ session kept; "All done" summary |
 
+### Find Duplicates (real window, 10 files incl. a sub-folder)
+
+| Check | Result |
+|---|---|
+| Scan with subfolders + similar (Normal) | ✔ 0.2 s; 3 groups: 3 identical HEICs (one in `sub`), 2 identical MP4s, similar fox PNG + 2 AVIFs; pigeon and town photos not grouped |
+| Auto-select | ✔ keeps one per group (largest / highest resolution), "Delete 5 · 895 KB" |
+| Delete → Recycle Bin, then Undo | ✔ 10 → 5 files on disk, view shows "No duplicates found"; Undo restores all 5 and the 3 groups reappear |
+| Select every copy of a group, Delete | ✔ "Delete every copy?" confirmation; Cancel leaves the files untouched |
+
 ### HEIC without Windows extensions
 
 VUERIQ never calls WIC or Media Foundation for decoding. The test machine has the Microsoft
@@ -114,6 +124,7 @@ machine; for a clean-OS check run the portable build in Windows Sandbox or a fre
 |---|---|
 | `pnpm tauri build` → `VUERIQ_1.0.0_x64-setup.exe` | ✔ 39.4 MB; contents verified with 7-Zip: `vueriq.exe`, `heif.dll`, `libde265.dll`, `dav1d.dll`, `libmpv-2.dll`, `plugins\heif-dav1d.dll`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md` |
 | `scripts/make-portable.ps1` → `VUERIQ_1.0.0_x64-portable.zip` | ✔ 53.8 MB |
+| v1.1.0: `pnpm tauri build` → `VUERIQ_1.1.0_x64-setup.exe`, portable zip | ✔ 39.5 MB / 54.0 MB; exe file version 1.1.0; portable extracted to a fresh folder starts and writes `data` |
 | Portable extracted to a fresh folder, launched with a 10-bit AVIF as argument ("Open with") | ✔ opens in the viewer within its folder (6 / 8), renders correctly |
 | Portable mode stores data beside the exe | ✔ `data\config`, `data\cache` created |
 | Second launch with a HEIC while running (double-click from Explorer) | ✔ single process; existing window switches to the HEIC |

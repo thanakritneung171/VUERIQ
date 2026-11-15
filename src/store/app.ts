@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   confirmBeforeLeavingVideo: false,
 };
 
-export type Section = "home" | "recent" | "favorites" | "browse" | "swipe" | "settings";
+export type Section = "home" | "recent" | "favorites" | "browse" | "swipe" | "duplicates" | "settings";
 
 /** An undoable file operation (gallery / viewer). */
 export type UndoEntry =

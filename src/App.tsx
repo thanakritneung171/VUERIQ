@@ -13,6 +13,7 @@ import { pickFiles } from "./lib/dialogs";
 import { useApp } from "./store/app";
 import { BrowseView } from "./views/BrowseView";
 import { CollectionView } from "./views/CollectionView";
+import { DuplicatesView } from "./views/DuplicatesView";
 import { HomeView } from "./views/HomeView";
 import { SettingsView } from "./views/SettingsView";
 import { SwipeView } from "./views/SwipeView";
@@ -141,6 +142,8 @@ export default function App() {
             <BrowseView />
           ) : section === "swipe" ? (
             <SwipeView />
+          ) : section === "duplicates" ? (
+            <DuplicatesView />
           ) : (
             <SettingsView />
           )}

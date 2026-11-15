@@ -44,14 +44,14 @@ pub struct Places {
 }
 
 #[cfg(windows)]
-fn is_hidden(md: &std::fs::Metadata) -> bool {
+pub(crate) fn is_hidden(md: &std::fs::Metadata) -> bool {
     use std::os::windows::fs::MetadataExt;
     const HIDDEN: u32 = 0x2;
     const SYSTEM: u32 = 0x4;
     md.file_attributes() & (HIDDEN | SYSTEM) != 0
 }
 #[cfg(not(windows))]
-fn is_hidden(_: &std::fs::Metadata) -> bool {
+pub(crate) fn is_hidden(_: &std::fs::Metadata) -> bool {
     false
 }
 

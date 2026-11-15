@@ -1,4 +1,4 @@
-import { Clock, FolderOpen, GalleryHorizontalEnd, Home, Settings, Star } from "lucide-react";
+import { Clock, CopyCheck, FolderOpen, GalleryHorizontalEnd, Home, Settings, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import { type Section, useApp } from "../store/app";
 import { cx } from "./ui";
@@ -42,6 +42,13 @@ export function Sidebar() {
           icon={<GalleryHorizontalEnd size={17} strokeWidth={1.75} />}
           label="Swipe Sort"
           onClick={() => setSection("swipe")}
+        />
+        <NavItem
+          active={section === "duplicates" && !viewerOpen}
+          dim={section === "duplicates" && viewerOpen}
+          icon={<CopyCheck size={17} strokeWidth={1.75} />}
+          label="Find Duplicates"
+          onClick={() => setSection("duplicates")}
         />
       </div>
       <div className="mt-auto space-y-0.5 border-t border-line pt-2.5">

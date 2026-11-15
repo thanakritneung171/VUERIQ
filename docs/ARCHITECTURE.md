@@ -42,6 +42,7 @@ deliberate exception noted below (animated GIF/WebP/APNG and SVG playback).
 | `src-tauri/src/protocol.rs` | `vq://` custom protocol (binary transfer) |
 | `src-tauri/src/color.rs` | ICC (qcms) and CICP/nclx → sRGB |
 | `src-tauri/src/assoc.rs` | Per-user file association registration |
+| `src-tauri/src/duplicates.rs` | Duplicate finder: size → quick hash → xxh3, plus dHash for similar photos |
 | `src-tauri/src/fileops.rs` | Delete to Recycle Bin, restore, move (cross-drive copy fallback) |
 
 ## Image pipeline
@@ -127,6 +128,20 @@ position updates).
   deletes the source (rolling back the copy on failure). Name clashes become `name (2).ext`.
 * Every call returns a per-file result; the UI updates the open folder, viewer, favorites and
   recent lists from those results and offers *Undo* in a toast (stack of 30, Ctrl+Z).
+
+## Duplicate finder
+
+* **Exact**: files are bucketed by size; buckets with 2+ files get a quick xxh3 over size + first
+  and last 64 KiB, and only remaining collisions are hashed in full (128-bit xxh3). Runs in
+  parallel (rayon); works for every image and video format.
+* **Similar** (images): each picture is decoded at thumbnail size (orientation applied, colour
+  managed), reduced to 9×8 grey and turned into a 64-bit difference hash. Images are sorted by
+  aspect ratio and compared only with neighbours within ±6 %; pairs with a Hamming distance ≤ 5 /
+  8 / 12 (Strict / Normal / Loose) are joined with union-find. Near-flat images (σ < 4) are
+  skipped for similarity so blank frames don't match each other. Hashes are cached in memory by
+  path + size + mtime, so "Scan again" is fast.
+* Progress is streamed as `dup-progress` events (throttled to ~12/s); `cancel_duplicates` stops
+  every phase promptly. Deleting and moving reuse the Recycle-Bin file operations and Undo.
 
 ## Security
 

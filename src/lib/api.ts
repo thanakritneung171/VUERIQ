@@ -4,6 +4,7 @@ import type {
   AppInfo,
   AssociationStatus,
   CacheStats,
+  DupReport,
   FolderListing,
   ImageInfo,
   Metadata,
@@ -51,6 +52,9 @@ export const api = {
   revealInExplorer: (path: string) => call<void>("reveal_in_explorer", { path }),
   appInfo: () => call<AppInfo>("app_info"),
   pathExists: (paths: string[]) => call<boolean[]>("paths_exist", { paths }),
+  findDuplicates: (folder: string, opts: { recursive: boolean; similar: boolean; threshold: number }) =>
+    call<DupReport>("find_duplicates", { folder, ...opts }),
+  cancelDuplicates: () => call<void>("cancel_duplicates"),
   hasRecycleBin: (path: string) => call<boolean>("has_recycle_bin", { path }),
   deleteFiles: (paths: string[], allowPermanent = false) => call<OpResult[]>("delete_files", { paths, allowPermanent }),
   restoreFiles: (paths: string[]) => call<OpResult[]>("restore_files", { paths }),
