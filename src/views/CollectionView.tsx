@@ -1,10 +1,12 @@
 import { Clock, Star, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Gallery, GalleryToolbar } from "../components/Gallery";
+import { Gallery } from "../components/Gallery";
+import { GalleryToolbar } from "../components/gallery/Toolbar";
 import { Button } from "../components/ui";
 import { api } from "../lib/api";
 import type { FileEntry } from "../lib/types";
-import { entryFromPath, useApp } from "../store/app";
+import { entryFromPath } from "../lib/entries";
+import { useApp } from "../store/app";
 
 /** Recent and Favorites: galleries built from a list of paths (which may no longer exist). */
 export function CollectionView({ kind }: { kind: "recent" | "favorites" }) {

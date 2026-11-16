@@ -6,7 +6,8 @@ import { Button, Kbd } from "../components/ui";
 import { api } from "../lib/api";
 import { pickFiles, pickFolder } from "../lib/dialogs";
 import type { FileEntry, Place, Places } from "../lib/types";
-import { entryFromPath, useApp } from "../store/app";
+import { entryFromPath } from "../lib/entries";
+import { useApp } from "../store/app";
 
 const PLACE_ICON: Record<string, ReactNode> = {
   pictures: <Image size={16} strokeWidth={1.75} />,

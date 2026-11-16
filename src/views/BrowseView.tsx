@@ -1,5 +1,6 @@
 import { ArrowUp, ChevronRight, FolderOpen, RefreshCw, TriangleAlert } from "lucide-react";
-import { Gallery, GalleryToolbar } from "../components/Gallery";
+import { Gallery } from "../components/Gallery";
+import { GalleryToolbar } from "../components/gallery/Toolbar";
 import { Button, IconButton, Spinner } from "../components/ui";
 import { pickFolder } from "../lib/dialogs";
 import { useApp } from "../store/app";

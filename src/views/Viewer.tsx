@@ -32,7 +32,8 @@ import { VideoView, type VideoViewHandle } from "../components/VideoView";
 import { api, isTauri } from "../lib/api";
 import { resolveShortcut } from "../lib/shortcuts";
 import type { ApiError, ImageInfo, VideoState } from "../lib/types";
-import { isFavorite, useApp } from "../store/app";
+import { isFavorite } from "../lib/entries";
+import { useApp } from "../store/app";
 
 export function Viewer() {
   const viewer = useApp((s) => s.viewer)!;

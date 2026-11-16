@@ -7,7 +7,8 @@ import { pickFolder } from "../lib/dialogs";
 import { basename, formatBytes, formatDate } from "../lib/formats";
 import { type SwipeDecision, swipeOutcome } from "../lib/selection";
 import type { ApiError, FileEntry } from "../lib/types";
-import { plural, sortAndFilter, useApp } from "../store/app";
+import { plural, sortAndFilter } from "../lib/entries";
+import { useApp } from "../store/app";
 
 // ───────────────────────── session state ─────────────────────────
 // Kept in its own store so a session survives switching to another section and back.

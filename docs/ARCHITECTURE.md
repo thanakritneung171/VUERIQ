@@ -10,7 +10,7 @@ deliberate exception noted below (animated GIF/WebP/APNG and SVG playback).
 │                                                                                  │
 │  WebView2 (transparent)                                Rust core                 │
 │  ┌──────────────────────────────┐   invoke (JSON)    ┌────────────────────────┐  │
-│  │ React UI                     │ ─────────────────▶ │ commands (lib.rs)      │  │
+│  │ React UI                     │ ─────────────────▶ │ commands/ (Rust)       │  │
 │  │  Sidebar · Gallery · Viewer  │                    │  fsx · exif · assoc    │  │
 │  │  TileRenderer (Canvas2D/GPU) │ ◀── vq:// binary ─ │ protocol.rs            │  │
 │  │  VideoView (HTML controls)   │   tiles, thumbs    │  ├ ImageStore (pyramid)│  │
@@ -34,11 +34,16 @@ deliberate exception noted below (animated GIF/WebP/APNG and SVG playback).
 | `src/lib/shortcuts.ts` | Keyboard map (unit tested) |
 | `src/lib/selection.ts` | Rubber-band / range selection and swipe-threshold maths (unit tested) |
 | `src/views/SwipeView.tsx` | Swipe Sort tool (keep / delete one photo at a time, undo history) |
-| `src/store/app.ts` | App state, navigation, recent/favorites, persistence, delete / move / undo |
+| `src/store/app.ts` | Zustand store composed from slices: `core.ts` (settings, library, folder), `viewer.ts` (viewer, quick mode), `ui.ts` (toasts, dialogs), `fileOps.ts` (delete / move / undo) |
+| `src/lib/entries.ts` | Pure helpers for file entries and path lists (sort/filter, recent, favorites; unit tested) |
+| `src/components/gallery/` | Gallery toolbar, context menu, grid tile / list row (`Gallery.tsx` keeps virtualisation and selection) |
+| `src/views/duplicates/` | Duplicate finder: store, setup / progress, results, preview |
 | `src-tauri/src/decode/` | Native decoders → RGBA8 sRGB, orientation applied |
 | `src-tauri/src/imagestore.rs` | Decoded image cache, mip pyramid, tiles, memory budget |
 | `src-tauri/src/thumbs.rs` | Thumbnail generation + disk cache |
-| `src-tauri/src/video.rs` | Runtime-loaded libmpv binding, player, video thumbnails |
+| `src-tauri/src/lib.rs` | App state and startup (plugins, launch files, window) |
+| `src-tauri/src/commands/` | Tauri commands by area: `files`, `images`, `system`, `playback` — thin wrappers over the modules below |
+| `src-tauri/src/video/` | libmpv: `mpv.rs` (runtime-loaded FFI), `player.rs` (embedded player + events), `tools.rs` (thumbnails, test media) |
 | `src-tauri/src/protocol.rs` | `vq://` custom protocol (binary transfer) |
 | `src-tauri/src/color.rs` | ICC (qcms) and CICP/nclx → sRGB |
 | `src-tauri/src/assoc.rs` | Per-user file association registration |
@@ -146,5 +151,5 @@ position updates).
 ## Security
 
 * Strict CSP; the `vq://file` route only serves media extensions, never arbitrary paths.
-* Video commands/properties are allow-listed in `video.rs`.
+* Video commands/properties are allow-listed in `video/player.rs`.
 * No network access is required at runtime.

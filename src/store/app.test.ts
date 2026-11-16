@@ -4,7 +4,8 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn().mockResolvedValue(null)
 
 import { invoke } from "@tauri-apps/api/core";
 import type { FileEntry } from "../lib/types";
-import { entryFromPath, sortAndFilter, useApp } from "./app";
+import { entryFromPath, sortAndFilter } from "../lib/entries";
+import { useApp } from "./app";
 
 const f = (name: string, kind: "image" | "video", size: number, modified: number): FileEntry => ({
   path: `C:\\media\\${name}`,
