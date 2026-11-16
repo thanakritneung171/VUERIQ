@@ -8,13 +8,13 @@ import {
   FlipVertical2,
   FolderOpen,
   Info,
+  Keyboard,
   LayoutGrid,
   Maximize,
   Minimize,
   MoreHorizontal,
   RotateCcw,
   RotateCw,
-  Scan,
   Star,
   Trash2,
   ZoomIn,
@@ -48,6 +48,7 @@ export function Viewer() {
   const quick = useApp((s) => s.quick);
   const deleteFiles = useApp((s) => s.deleteFiles);
   const setFullscreen = useApp((s) => s.setFullscreen);
+  const setShortcutsOpen = useApp((s) => s.setShortcutsOpen);
 
   const file = viewer.items[viewer.index];
   const imageRef = useRef<ImageViewHandle>(null);
@@ -406,7 +407,9 @@ export function Viewer() {
                   disabled={!info}
                   onClick={() => imageRef.current?.actualSize()}
                 >
-                  <Scan size={16} />
+                  <span className="font-mono text-[11.5px] font-semibold">
+                    1:1
+                  </span>
                 </IconButton>
                 <div className="mx-1.5 h-5 w-px bg-line" />
                 <IconButton
@@ -424,22 +427,6 @@ export function Viewer() {
                   onClick={() => imageRef.current?.rotate(1)}
                 >
                   <RotateCw size={16} />
-                </IconButton>
-                <IconButton
-                  label="Flip horizontal"
-                  shortcut="H"
-                  disabled={!info}
-                  onClick={() => imageRef.current?.flip("h")}
-                >
-                  <FlipHorizontal2 size={16} />
-                </IconButton>
-                <IconButton
-                  label="Flip vertical"
-                  shortcut="V"
-                  disabled={!info}
-                  onClick={() => imageRef.current?.flip("v")}
-                >
-                  <FlipVertical2 size={16} />
                 </IconButton>
                 <div className="mx-1.5 h-5 w-px bg-line" />
               </>
@@ -476,58 +463,86 @@ export function Viewer() {
             >
               {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
             </IconButton>
-            {!isVideo && (
-              <Menu
-                align="right"
-                trigger={(p) => (
-                  <IconButton label="More" {...p}>
-                    <MoreHorizontal size={17} />
-                  </IconButton>
-                )}
-                items={[
-                  {
-                    label: "Show in Explorer",
-                    icon: <FolderOpen size={14} />,
-                    onSelect: () => api.revealInExplorer(file.path),
-                  },
-                  {
-                    label: "Copy file path",
-                    onSelect: () => navigator.clipboard.writeText(file.path),
-                  },
-                  {
-                    label: "Background: Default",
-                    checked: settings.viewerBackground === "default",
-                    onSelect: () =>
-                      updateSettings({ viewerBackground: "default" }),
-                    separatorBefore: true,
-                  },
-                  {
-                    label: "Background: Black",
-                    checked: settings.viewerBackground === "black",
-                    onSelect: () =>
-                      updateSettings({ viewerBackground: "black" }),
-                  },
-                  {
-                    label: "Background: Gray",
-                    checked: settings.viewerBackground === "gray",
-                    onSelect: () =>
-                      updateSettings({ viewerBackground: "gray" }),
-                  },
-                  {
-                    label: "Background: White",
-                    checked: settings.viewerBackground === "white",
-                    onSelect: () =>
-                      updateSettings({ viewerBackground: "white" }),
-                  },
-                  {
-                    label: "Background: Checkerboard",
-                    checked: settings.viewerBackground === "checker",
-                    onSelect: () =>
-                      updateSettings({ viewerBackground: "checker" }),
-                  },
-                ]}
-              />
-            )}
+            <Menu
+              align="right"
+              trigger={(p) => (
+                <IconButton label="More" {...p}>
+                  <MoreHorizontal size={17} />
+                </IconButton>
+              )}
+              items={[
+                ...(isVideo
+                  ? []
+                  : [
+                      {
+                        label: "Flip horizontal",
+                        icon: <FlipHorizontal2 size={14} />,
+                        hint: "H",
+                        disabled: !info,
+                        onSelect: () => imageRef.current?.flip("h"),
+                      },
+                      {
+                        label: "Flip vertical",
+                        icon: <FlipVertical2 size={14} />,
+                        hint: "V",
+                        disabled: !info,
+                        onSelect: () => imageRef.current?.flip("v"),
+                      },
+                    ]),
+                {
+                  label: "Show in Explorer",
+                  separatorBefore: !isVideo,
+                  icon: <FolderOpen size={14} />,
+                  onSelect: () => api.revealInExplorer(file.path),
+                },
+                {
+                  label: "Copy file path",
+                  onSelect: () => navigator.clipboard.writeText(file.path),
+                },
+                ...(isVideo
+                  ? []
+                  : [
+                      {
+                        label: "Background: Default",
+                        checked: settings.viewerBackground === "default",
+                        onSelect: () =>
+                          updateSettings({ viewerBackground: "default" }),
+                        separatorBefore: true,
+                      },
+                      {
+                        label: "Background: Black",
+                        checked: settings.viewerBackground === "black",
+                        onSelect: () =>
+                          updateSettings({ viewerBackground: "black" }),
+                      },
+                      {
+                        label: "Background: Gray",
+                        checked: settings.viewerBackground === "gray",
+                        onSelect: () =>
+                          updateSettings({ viewerBackground: "gray" }),
+                      },
+                      {
+                        label: "Background: White",
+                        checked: settings.viewerBackground === "white",
+                        onSelect: () =>
+                          updateSettings({ viewerBackground: "white" }),
+                      },
+                      {
+                        label: "Background: Checkerboard",
+                        checked: settings.viewerBackground === "checker",
+                        onSelect: () =>
+                          updateSettings({ viewerBackground: "checker" }),
+                      },
+                    ]),
+                {
+                  label: "Keyboard shortcuts",
+                  icon: <Keyboard size={14} />,
+                  hint: "?",
+                  separatorBefore: true,
+                  onSelect: () => setShortcutsOpen(true),
+                },
+              ]}
+            />
           </div>
         </div>
 

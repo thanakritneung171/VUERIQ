@@ -1,5 +1,6 @@
 import { CheckCircle2, ExternalLink, Info, Trash2 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { ShortcutList } from "../components/ShortcutsDialog";
 import { Button, Kbd, Segmented, Toggle } from "../components/ui";
 import { api } from "../lib/api";
 import { formatBytes } from "../lib/formats";
@@ -200,17 +201,11 @@ export function SettingsView() {
         </Group>
 
         <Group title="Keyboard Shortcuts">
-          <div className="grid grid-cols-2 gap-x-10 gap-y-2 py-3 text-[12.5px]">
-            {SHORTCUTS.map(([k, d]) => (
-              <div key={d} className="flex items-center justify-between gap-3">
-                <span className="text-fg-muted">{d}</span>
-                <span className="flex gap-1">
-                  {k.split(" ").map((x) => (
-                    <Kbd key={x}>{x}</Kbd>
-                  ))}
-                </span>
-              </div>
-            ))}
+          <div className="py-4">
+            <ShortcutList />
+            <p className="mt-5 text-[12px] text-fg-subtle">
+              Press <Kbd>?</Kbd> anywhere to see this list.
+            </p>
           </div>
         </Group>
 
@@ -225,27 +220,6 @@ export function SettingsView() {
     </div>
   );
 }
-
-const SHORTCUTS: [string, string][] = [
-  ["Ctrl O", "Open files"],
-  ["← →", "Previous / next"],
-  ["+ −", "Zoom in / out"],
-  ["0", "Fit to window"],
-  ["1", "Actual size (100%)"],
-  ["R L", "Rotate right / left"],
-  ["H V", "Flip horizontal / vertical"],
-  ["F", "Full screen"],
-  ["I", "Information panel"],
-  ["S", "Toggle favorite"],
-  ["Esc", "Exit full screen / back"],
-  ["Space", "Play / pause video"],
-  ["← →", "Seek video ±5 s"],
-  [", .", "Previous / next frame"],
-  ["[ ]", "Playback speed"],
-  ["↑ ↓", "Volume"],
-  ["M", "Mute"],
-  ["PgUp PgDn", "Previous / next file (video)"],
-];
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (

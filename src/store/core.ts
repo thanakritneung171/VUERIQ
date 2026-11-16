@@ -110,8 +110,17 @@ export const createCore: SliceCreator<CoreSlice> = (set, get) => ({
   },
 
   clearRecent: () => {
+    const before = get().recent;
+    if (!before.length) return;
     set({ recent: [] });
     scheduleSave(get);
+    get().showToast("Cleared recent files.", "info", {
+      label: "Undo",
+      run: () => {
+        set({ recent: before });
+        scheduleSave(get);
+      },
+    });
   },
 
   toggleFavorite: (path) => {

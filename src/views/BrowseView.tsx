@@ -78,7 +78,7 @@ export function BrowseView() {
             <IconButton label="Choose folder" onClick={choose}>
               <FolderOpen size={16} />
             </IconButton>
-            <div className="ml-1 flex min-w-0 items-center overflow-hidden text-[13px]">
+            <div className="ml-1 flex min-w-[120px] items-center overflow-hidden text-[13px]">
               {folder && crumbs(folder.path).length > 3 && (
                 <button
                   type="button"
@@ -91,14 +91,14 @@ export function BrowseView() {
               )}
               {folder &&
                 crumbs(folder.path).slice(-3).map((c, i, arr) => (
-                  <span key={c.path} className="flex min-w-0 items-center">
+                  <span key={c.path} className={i === arr.length - 1 ? "flex shrink-0 items-center" : "flex min-w-0 items-center"}>
                     {(i > 0 || crumbs(folder.path).length > 3) && <ChevronRight size={13} className="mx-0.5 shrink-0 text-fg-subtle" />}
                     <button
                       type="button"
                       onClick={() => openFolder(c.path)}
                       className={
                         i === arr.length - 1
-                          ? "max-w-[260px] truncate rounded px-1.5 py-0.5 font-medium text-fg"
+                          ? "max-w-[220px] truncate rounded px-1.5 py-0.5 font-medium text-fg"
                           : "max-w-[140px] truncate rounded px-1.5 py-0.5 text-fg-muted hover:bg-fg/8 hover:text-fg"
                       }
                     >

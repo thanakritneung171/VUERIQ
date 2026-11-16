@@ -63,7 +63,7 @@ export function CollectionView({ kind }: { kind: "recent" | "favorites" }) {
             <div className="max-w-xs text-[12.5px] text-fg-muted">
               {kind === "recent"
                 ? "Images and videos you open appear here."
-                : "Press F in the viewer or click the star on a thumbnail to add a favorite."}
+                : "Press S in the viewer, or click the star on a thumbnail, to add a favorite."}
             </div>
           </div>
         }

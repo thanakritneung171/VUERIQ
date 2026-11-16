@@ -92,13 +92,15 @@ export interface ViewerSlice {
   setFullscreen: (v: boolean) => void;
 }
 
-/** Toasts, confirm dialog, About dialog. */
+/** Toasts, confirm dialog, About and keyboard-shortcut dialogs. */
 export interface UiSlice {
   aboutOpen: boolean;
+  shortcutsOpen: boolean;
   toast: ToastState | null;
   confirm: ConfirmRequest | null;
 
   setAboutOpen: (v: boolean) => void;
+  setShortcutsOpen: (v: boolean) => void;
   showToast: (
     message: string,
     tone?: "info" | "error",

@@ -106,6 +106,7 @@ export function HomeView() {
                     <Thumb file={f} size={140} className="h-full w-full p-1.5" />
                   </div>
                   <div className="mt-1.5 truncate text-[12px] text-fg-muted group-hover:text-fg">{f.name}</div>
+                  <div className="truncate text-[11px] text-fg-subtle">{parentName(f.path)}</div>
                 </button>
               ))}
             </div>
@@ -116,6 +117,12 @@ export function HomeView() {
       </div>
     </div>
   );
+}
+
+/** Folder the file is in, so two files with the same name can be told apart. */
+function parentName(path: string): string {
+  const parts = path.split(/[\\/]+/).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 2] : "";
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {

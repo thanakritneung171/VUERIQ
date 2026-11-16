@@ -5,6 +5,7 @@ import { TriangleAlert, Upload } from "lucide-react";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { AboutDialog } from "./components/AboutDialog";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TitleBar } from "./components/TitleBar";
 import { cx } from "./components/ui";
@@ -242,6 +243,7 @@ export default function App() {
         </div>
       )}
       <AboutDialog />
+      <ShortcutsDialog />
       <ConfirmDialog />
     </div>
   );

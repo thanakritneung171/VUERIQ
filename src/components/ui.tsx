@@ -128,6 +128,8 @@ export interface MenuItem {
   onSelect: () => void;
   disabled?: boolean;
   separatorBefore?: boolean;
+  /** Keyboard shortcut shown on the right. */
+  hint?: string;
 }
 
 /** Small dropdown menu anchored to its trigger. */
@@ -169,7 +171,7 @@ export function Menu({
         <div
           role="menu"
           className={cx(
-            "animate-pop-in absolute z-50 min-w-44 rounded-lg border border-line-strong bg-elev p-1 shadow-2xl shadow-black/40",
+            "animate-pop-in absolute z-50 min-w-48 rounded-lg whitespace-nowrap border border-line-strong bg-elev p-1 shadow-2xl shadow-black/40",
             align === "right" ? "right-0" : "left-0",
             side === "bottom" ? "top-full mt-1" : "bottom-full mb-1",
           )}
@@ -189,6 +191,7 @@ export function Menu({
               >
                 <span className="flex w-4 justify-center text-fg-muted">{it.icon}</span>
                 <span className="flex-1">{it.label}</span>
+                {it.hint && <span className="text-[11px] text-fg-subtle">{it.hint}</span>}
                 {it.checked && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
               </button>
             </div>

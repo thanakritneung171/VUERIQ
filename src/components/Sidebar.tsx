@@ -1,4 +1,4 @@
-import { Clock, CopyCheck, FolderOpen, GalleryHorizontalEnd, Home, Settings, Star } from "lucide-react";
+import { Clock, CopyCheck, FolderOpen, GalleryHorizontalEnd, Home, Keyboard, Settings, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import { type Section, useApp } from "../store/app";
 import { cx } from "./ui";
@@ -14,6 +14,7 @@ export function Sidebar() {
   const section = useApp((s) => s.section);
   const viewerOpen = useApp((s) => s.viewer !== null);
   const setSection = useApp((s) => s.setSection);
+  const setShortcutsOpen = useApp((s) => s.setShortcutsOpen);
   const recentCount = useApp((s) => s.recent.length);
   const favCount = useApp((s) => s.favorites.length);
 
@@ -58,6 +59,13 @@ export function Sidebar() {
           label="Settings"
           onClick={() => setSection("settings")}
         />
+        <NavItem
+          active={false}
+          icon={<Keyboard size={17} strokeWidth={1.75} />}
+          label="Shortcuts"
+          hint="?"
+          onClick={() => setShortcutsOpen(true)}
+        />
       </div>
     </nav>
   );
@@ -69,6 +77,7 @@ function NavItem({
   icon,
   label,
   count,
+  hint,
   onClick,
 }: {
   active: boolean;
@@ -76,6 +85,7 @@ function NavItem({
   icon: ReactNode;
   label: string;
   count?: number;
+  hint?: string;
   onClick: () => void;
 }) {
   return (
@@ -92,6 +102,9 @@ function NavItem({
       <span className={cx(active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")}>{icon}</span>
       <span className="flex-1 text-left">{label}</span>
       {!!count && <span className="text-[11px] tabular-nums text-fg-subtle">{count}</span>}
+      {hint && (
+        <kbd className="rounded border border-line px-1.5 font-mono text-[10.5px] text-fg-subtle">{hint}</kbd>
+      )}
     </button>
   );
 }
